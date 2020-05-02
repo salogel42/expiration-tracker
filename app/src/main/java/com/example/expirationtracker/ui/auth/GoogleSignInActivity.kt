@@ -1,10 +1,12 @@
-package com.example.expirationtracker
+package com.example.expirationtracker.ui.auth
 
 import android.content.Intent
 import android.os.Bundle
 import com.google.android.material.snackbar.Snackbar
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -14,26 +16,31 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import com.example.expirationtracker.databinding.ActivityGoogleBinding
+import com.example.expirationtracker.databinding.FragmentGoogleBinding
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
+import com.example.expirationtracker.R
 
 /**
  * Demonstrate Firebase Authentication using a Google ID Token.
  */
-class GoogleSignInActivity : AppCompatActivity(), View.OnClickListener {
+class GoogleSignInActivity : Fragment(), View.OnClickListener {
 
     // [START declare_auth]
     private lateinit var auth: FirebaseAuth
     // [END declare_auth]
 
-    private lateinit var binding: ActivityGoogleBinding
+    private lateinit var binding: FragmentGoogleBinding
     private lateinit var googleSignInClient: GoogleSignInClient
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-//        binding = DataBindingUtil.inflate(layoutInflater, R.layout.activity_google)
-        binding = ActivityGoogleBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+//        binding = DataBindingUtil.inflate(layoutInflater, R.layout.fragment_google)
+        binding = FragmentGoogleBinding.inflate(layoutInflater)
+//        getActivity().setContentView(binding.root)
 
         // Button listeners
         binding.signInButton.setOnClickListener(this)
@@ -48,12 +55,14 @@ class GoogleSignInActivity : AppCompatActivity(), View.OnClickListener {
                 .build()
         // [END config_signin]
 
-        googleSignInClient = GoogleSignIn.getClient(this, gso)
+        val activity = getActivity()
+        googleSignInClient = GoogleSignIn.getClient(activity as AppCompatActivity, gso)
 
         // [START initialize_auth]
         // Initialize Firebase Auth
         auth = Firebase.auth
         // [END initialize_auth]
+        return binding.root
     }
 
     // [START on_start_check_user]
@@ -92,7 +101,7 @@ class GoogleSignInActivity : AppCompatActivity(), View.OnClickListener {
     private fun firebaseAuthWithGoogle(idToken: String) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential)
-                .addOnCompleteListener(this) { task ->
+                .addOnCompleteListener(activity as AppCompatActivity) { task ->
                     if (task.isSuccessful) {
                         // Sign in success, update UI with the signed-in user's information
                         Log.d(TAG, "signInWithCredential:success")
@@ -114,7 +123,9 @@ class GoogleSignInActivity : AppCompatActivity(), View.OnClickListener {
     // [START signin]
     private fun signIn() {
         val signInIntent = googleSignInClient.signInIntent
-        startActivityForResult(signInIntent, RC_SIGN_IN)
+        startActivityForResult(signInIntent,
+            RC_SIGN_IN
+        )
     }
     // [END signin]
 
@@ -123,7 +134,7 @@ class GoogleSignInActivity : AppCompatActivity(), View.OnClickListener {
         auth.signOut()
 
         // Google sign out
-        googleSignInClient.signOut().addOnCompleteListener(this) {
+        googleSignInClient.signOut().addOnCompleteListener(activity as AppCompatActivity) {
             updateUI(null)
         }
     }
@@ -133,7 +144,7 @@ class GoogleSignInActivity : AppCompatActivity(), View.OnClickListener {
         auth.signOut()
 
         // Google revoke access
-        googleSignInClient.revokeAccess().addOnCompleteListener(this) {
+        googleSignInClient.revokeAccess().addOnCompleteListener(activity as AppCompatActivity) {
             updateUI(null)
         }
     }

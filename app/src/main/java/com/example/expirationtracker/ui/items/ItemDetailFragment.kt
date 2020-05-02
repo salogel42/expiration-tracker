@@ -1,17 +1,18 @@
-package com.example.expirationtracker
+package com.example.expirationtracker.ui.items
 
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import com.example.expirationtracker.R
 import com.example.expirationtracker.dummy.DummyContent
-import kotlinx.android.synthetic.main.activity_item_detail.*
+import kotlinx.android.synthetic.main.fragment_item_detail.*
 import kotlinx.android.synthetic.main.item_detail.view.*
 
 /**
  * A fragment representing a single Item detail screen.
- * This fragment is either contained in a [ItemListActivity]
+ * This fragment is either contained in a [ItemListFragment]
  * in two-pane mode (on tablets) or a [ItemDetailActivity]
  * on handsets.
  */

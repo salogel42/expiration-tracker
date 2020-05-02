@@ -1,17 +1,19 @@
-package com.example.expirationtracker
+package com.example.expirationtracker.ui.items
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.fragment.app.Fragment
+import com.example.expirationtracker.MainActivity
+import com.example.expirationtracker.R
 
 import com.example.expirationtracker.dummy.DummyContent
-import kotlinx.android.synthetic.main.activity_item_list.*
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.android.synthetic.main.item_list_content.view.*
 import kotlinx.android.synthetic.main.item_list.*
 
@@ -23,7 +25,7 @@ import kotlinx.android.synthetic.main.item_list.*
  * item details. On tablets, the activity presents the list of items and
  * item details side-by-side using two vertical panes.
  */
-class ItemListActivity : AppCompatActivity() {
+class ItemListFragment : Fragment() {
 
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
@@ -31,13 +33,17 @@ class ItemListActivity : AppCompatActivity() {
      */
     private var twoPane: Boolean = false
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_item_list)
+        val root = inflater.inflate(R.layout.fragment_item_list, container, false)
 
-        setSupportActionBar(toolbar)
-        toolbar.title = title
+//        toolbar.title = title
 
+        val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
         fab.setOnClickListener { view ->
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
@@ -51,15 +57,21 @@ class ItemListActivity : AppCompatActivity() {
             twoPane = true
         }
 
-        setupRecyclerView(item_list)
+        setupRecyclerView(root.findViewById(R.id.item_list))
+        return root
     }
 
     private fun setupRecyclerView(recyclerView: RecyclerView) {
-        recyclerView.adapter = SimpleItemRecyclerViewAdapter(this, DummyContent.ITEMS, twoPane)
+        recyclerView.adapter =
+            SimpleItemRecyclerViewAdapter(
+                activity as MainActivity,
+                DummyContent.ITEMS,
+                twoPane
+            )
     }
 
     class SimpleItemRecyclerViewAdapter(
-        private val parentActivity: ItemListActivity,
+        private val parentActivity: MainActivity,
         private val values: List<DummyContent.DummyItem>,
         private val twoPane: Boolean
     ) :
@@ -71,7 +83,8 @@ class ItemListActivity : AppCompatActivity() {
             onClickListener = View.OnClickListener { v ->
                 val item = v.tag as DummyContent.DummyItem
                 if (twoPane) {
-                    val fragment = ItemDetailFragment().apply {
+                    val fragment = ItemDetailFragment()
+                        .apply {
                         arguments = Bundle().apply {
                             putString(ItemDetailFragment.ARG_ITEM_ID, item.id)
                         }
