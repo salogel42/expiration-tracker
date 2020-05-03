@@ -7,36 +7,36 @@ import java.util.HashMap
  * Helper class for providing sample content for user interfaces created by
  * Android template wizards.
  *
- * TODO: Replace all uses of this class before publishing your app.
  */
-object DummyContent {
+object ItemContent {
 
     /**
-     * An array of sample (dummy) items.
+     * An array of items.
      */
-    val ITEMS: MutableList<DummyItem> = ArrayList()
+    val ITEMS: MutableList<ExpirableItem> = ArrayList()
 
     /**
-     * A map of sample (dummy) items, by ID.
+     * A map of items, by ID.
      */
-    val ITEM_MAP: MutableMap<String, DummyItem> = HashMap()
+    val ITEM_MAP: MutableMap<String, ExpirableItem> = HashMap()
 
     private val COUNT = 25
 
     init {
+        //pull items from cloud firestore
         // Add some sample items.
         for (i in 1..COUNT) {
             addItem(createDummyItem(i))
         }
     }
 
-    private fun addItem(item: DummyItem) {
+    private fun addItem(item: ExpirableItem) {
         ITEMS.add(item)
         ITEM_MAP.put(item.id, item)
     }
 
-    private fun createDummyItem(position: Int): DummyItem {
-        return DummyItem(position.toString(), "Item " + position, makeDetails(position))
+    private fun createDummyItem(position: Int): ExpirableItem {
+        return ExpirableItem(position.toString(), "Item " + position, makeDetails(position), expirationImageId = "e" + position, imageId = "1" + position)
     }
 
     private fun makeDetails(position: Int): String {
@@ -51,7 +51,7 @@ object DummyContent {
     /**
      * A dummy item representing a piece of content.
      */
-    data class DummyItem(val id: String, val content: String, val details: String) {
-        override fun toString(): String = content
+    data class ExpirableItem(val id: String, val name: String, val details: String, val expirationImageId:String, val imageId:String) {
+        override fun toString(): String = name
     }
 }

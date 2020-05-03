@@ -12,7 +12,7 @@ import androidx.fragment.app.Fragment
 import com.example.expirationtracker.MainActivity
 import com.example.expirationtracker.R
 
-import com.example.expirationtracker.dummy.DummyContent
+import com.example.expirationtracker.dummy.ItemContent
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.android.synthetic.main.item_list_content.view.*
 import kotlinx.android.synthetic.main.item_list.*
@@ -65,14 +65,14 @@ class ItemListFragment : Fragment() {
         recyclerView.adapter =
             SimpleItemRecyclerViewAdapter(
                 activity as MainActivity,
-                DummyContent.ITEMS,
+                ItemContent.ITEMS,
                 twoPane
             )
     }
 
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: MainActivity,
-        private val values: List<DummyContent.DummyItem>,
+        private val values: List<ItemContent.ExpirableItem>,
         private val twoPane: Boolean
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
@@ -81,7 +81,7 @@ class ItemListFragment : Fragment() {
 
         init {
             onClickListener = View.OnClickListener { v ->
-                val item = v.tag as DummyContent.DummyItem
+                val item = v.tag as ItemContent.ExpirableItem
                 if (twoPane) {
                     val fragment = ItemDetailFragment()
                         .apply {
@@ -111,7 +111,7 @@ class ItemListFragment : Fragment() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = values[position]
             holder.idView.text = item.id
-            holder.contentView.text = item.content
+            holder.contentView.text = item.name
 
             with(holder.itemView) {
                 tag = item
