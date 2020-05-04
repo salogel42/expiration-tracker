@@ -1,9 +1,6 @@
 package com.example.expirationtracker.ui.items
 
-import android.app.Activity
-import android.app.Activity.RESULT_OK
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -21,9 +18,10 @@ import com.example.expirationtracker.R
 
 import com.example.expirationtracker.dummy.ItemContent
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.item_list_content.view.*
 import kotlinx.android.synthetic.main.item_list.*
-import kotlinx.android.synthetic.main.nav_header_main.*
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -64,7 +62,7 @@ class ItemListFragment : Fragment() {
                 photoFile?.also {
                     val photoURI: Uri = FileProvider.getUriForFile(
                         requireActivity(),
-                        "com.example.android.fileprovider",
+                        "com.example.expirationtracker.fileprovider",
                         it
                     )
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
@@ -105,6 +103,28 @@ class ItemListFragment : Fragment() {
         val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
         fab.setOnClickListener { view ->
             dispatchTakePictureIntent()
+
+
+            // Create a storage reference from our app
+            // TODO(sdspikes): get this working -- Firebase Console won't let me enable Firebase Storage for some reason, try again tomorrow
+            // TODO(sdspikes): don't hard-code this bucket
+            val storage = Firebase.storage("gs://expiration-images")
+            val storageRef = storage.reference
+
+            // Create a reference to "mountains.jpg"
+            var file = Uri.fromFile(File(currentPhotoPath))
+            val photoRef = storageRef.child("${file.lastPathSegment}")
+            var uploadTask = photoRef.putFile(file)
+
+            // Register observers to listen for when the download is done or if it fails
+            uploadTask.addOnFailureListener {
+                // Handle unsuccessful uploads
+                print("no worky")
+            }.addOnSuccessListener {
+                // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
+                // TODO(maybe grab the corresponding text from expiration-text?)
+                print("workeed")
+            }
 
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()

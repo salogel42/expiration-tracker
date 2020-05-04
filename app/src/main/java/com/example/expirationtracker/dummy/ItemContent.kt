@@ -1,5 +1,9 @@
 package com.example.expirationtracker.dummy
 
+import android.content.ContentValues.TAG
+import android.util.Log
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import java.util.ArrayList
 import java.util.HashMap
 
@@ -24,10 +28,21 @@ object ItemContent {
 
     init {
         //pull items from cloud firestore
-        // Add some sample items.
-        for (i in 1..COUNT) {
-            addItem(createDummyItem(i))
-        }
+        val db = Firebase.firestore
+        Log.d(TAG, "getting Items from firestore")
+        db.collection("items")
+            .get()
+            .addOnSuccessListener { result ->
+                Log.d(TAG, "got Items from firestore ${result}")
+                for (document in result) {
+                    Log.d(TAG, "${document.id} => ${document.data}")
+                    addItem(ExpirableItem(document.data))
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.w(TAG, "Error getting documents.", exception)
+            }
+
     }
 
     private fun addItem(item: ExpirableItem) {
@@ -35,23 +50,16 @@ object ItemContent {
         ITEM_MAP.put(item.id, item)
     }
 
-    private fun createDummyItem(position: Int): ExpirableItem {
-        return ExpirableItem(position.toString(), "Item " + position, makeDetails(position), expirationImageId = "e" + position, imageId = "1" + position)
-    }
-
-    private fun makeDetails(position: Int): String {
-        val builder = StringBuilder()
-        builder.append("Details about Item: ").append(position)
-        for (i in 0..position - 1) {
-            builder.append("\nMore details information here.")
-        }
-        return builder.toString()
-    }
 
     /**
-     * A dummy item representing a piece of content.
+     * An object representing an item that will expire.
      */
-    data class ExpirableItem(val id: String, val name: String, val details: String, val expirationImageId:String, val imageId:String) {
+    data class ExpirableItem(val id: String, val name: String, val description: String, val imageFilename:String, val textFilename:String) {
+
+        constructor(data: Map<String, Any>) : this(data["id"].toString(), data["name"].toString(), data["description"].toString(), data["imageFilename"].toString(), data["textFilename"].toString()) {
+        }
+
         override fun toString(): String = name
+
     }
 }

@@ -45,7 +45,7 @@ class ItemDetailFragment : Fragment() {
 
         // Show the dummy content as text in a TextView.
         item?.let {
-            rootView.item_detail.text = it.details
+            rootView.item_detail.text = it.description
         }
 
         return rootView

@@ -3,6 +3,7 @@
     package="com.example.expirationtracker">
 
     <application
+        android:name="androidx.multidex.MultiDexApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -35,7 +36,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.mydomain.fileprovider"
+            android:authorities="com.example.expirationtracker.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
