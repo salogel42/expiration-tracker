@@ -1,7 +1,9 @@
 package com.example.expirationtracker.ui.items
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.provider.MediaStore
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import android.view.LayoutInflater
@@ -33,6 +35,17 @@ class ItemListFragment : Fragment() {
      */
     private var twoPane: Boolean = false
 
+
+    val REQUEST_IMAGE_CAPTURE = 1
+
+    private fun dispatchTakePictureIntent() {
+        Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
+            takePictureIntent.resolveActivity((activity as Activity).getPackageManager())?.also {
+                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
+            }
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -45,6 +58,8 @@ class ItemListFragment : Fragment() {
 
         val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
         fab.setOnClickListener { view ->
+            dispatchTakePictureIntent()
+
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
