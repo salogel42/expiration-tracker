@@ -1,8 +1,12 @@
 package com.example.expirationtracker.ui.items
 
 import android.app.Activity
+import android.app.Activity.RESULT_OK
 import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
@@ -10,6 +14,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import com.example.expirationtracker.MainActivity
 import com.example.expirationtracker.R
@@ -18,6 +23,11 @@ import com.example.expirationtracker.dummy.ItemContent
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.android.synthetic.main.item_list_content.view.*
 import kotlinx.android.synthetic.main.item_list.*
+import kotlinx.android.synthetic.main.nav_header_main.*
+import java.io.File
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * An activity representing a list of Pings. This activity
@@ -36,13 +46,49 @@ class ItemListFragment : Fragment() {
     private var twoPane: Boolean = false
 
 
-    val REQUEST_IMAGE_CAPTURE = 1
+    val REQUEST_TAKE_PHOTO = 1
 
     private fun dispatchTakePictureIntent() {
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
-            takePictureIntent.resolveActivity((activity as Activity).getPackageManager())?.also {
-                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
+            // Ensure that there's a camera activity to handle the intent
+            takePictureIntent.resolveActivity(activity?.packageManager!!)?.also {
+                // Create the File where the photo should go
+                val photoFile: File? = try {
+                    createImageFile()
+                } catch (ex: IOException) {
+                    // Error occurred while creating the File
+                    print("Error creating file")
+                    null
+                }
+                // Continue only if the File was successfully created
+                photoFile?.also {
+                    val photoURI: Uri = FileProvider.getUriForFile(
+                        requireActivity(),
+                        "com.example.android.fileprovider",
+                        it
+                    )
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
+                    startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO)
+                }
             }
+        }
+    }
+
+
+    lateinit var currentPhotoPath: String
+
+    @Throws(IOException::class)
+    private fun createImageFile(): File {
+        // Create an image file name
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+        val storageDir: File = activity?.getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!
+        return File.createTempFile(
+            "JPEG_${timeStamp}_", /* prefix */
+            ".jpg", /* suffix */
+            storageDir /* directory */
+        ).apply {
+            // Save a file: path for use with ACTION_VIEW intents
+            currentPhotoPath = absolutePath
         }
     }
 
