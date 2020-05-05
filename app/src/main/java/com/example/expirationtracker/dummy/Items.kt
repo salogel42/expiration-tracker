@@ -13,7 +13,7 @@ import java.util.*
  * Android template wizards.
  *
  */
-object ItemContent {
+object Items {
 
     /**
      * An array of items.
@@ -28,7 +28,7 @@ object ItemContent {
     private val COUNT = 25
 
     //pull items from cloud firestore
-    fun getItemsFromFirestore() {
+    fun getExistingItems() {
         val db = Firebase.firestore
         Log.d(TAG, "getting Items from firestore")
         db.collection("items")
@@ -46,21 +46,37 @@ object ItemContent {
                 Log.w(TAG, "Error getting documents.", exception)
             }
     }
-    init {
-        getItemsFromFirestore()
+
+    fun clearAll() {
+        ITEMS.clear()
+        ITEM_MAP.clear()
     }
 
-    private fun addItem(item: ExpirableItem) {
+    fun addItem(item: ExpirableItem) {
         ITEMS.add(item)
         Log.d(TAG, "item created ${item.name} => ${item.id}")
         ITEM_MAP.put(item.id, item)
     }
 
+    fun removeItem(item: ExpirableItem) {
+        ITEMS.remove(item)
+        ITEM_MAP.remove(item.id)
+    }
+
+    fun size() : Int {
+        return ITEMS.size
+    }
+
+    fun removeItem(position: Int) {
+        ITEMS.removeAt(position)
+        ITEM_MAP.remove(ITEMS[position].id)
+    }
 
     fun getShortDate(date: Date) : String {
         val sdf = SimpleDateFormat("MMM dd, yyyy")
         return sdf.format(date)
     }
+
     /**
      * An object representing an item that will expire.
      */

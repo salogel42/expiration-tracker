@@ -31,5 +31,7 @@
 
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
+    <string name="pick_expiration_date">Set Expiration Date</string>
+
 
 </resources>
