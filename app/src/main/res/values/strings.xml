@@ -29,7 +29,7 @@
     <string name="menu_gallery">Gallery</string>
     <string name="menu_user_profile">User Profile</string>
 
-    <string name="hello_first_fragment">Hello first fragment</string>
-    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
 
 </resources>

@@ -1,31 +1,39 @@
 package com.example.expirationtracker.ui.items
 
+import android.content.ContentValues
+import android.content.ContentValues.TAG
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
-import com.example.expirationtracker.MainActivity
+import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.expirationtracker.R
-
 import com.example.expirationtracker.dummy.ItemContent
+import com.firebase.ui.auth.AuthUI.getApplicationContext
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.snackbar.Snackbar
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.item_list_content.view.*
-import kotlinx.android.synthetic.main.item_list.*
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
+
 
 /**
  * An activity representing a list of Pings. This activity
@@ -37,14 +45,10 @@ import java.util.*
  */
 class ItemListFragment : Fragment() {
 
-    /**
-     * Whether or not the activity is in two-pane mode, i.e. running on a tablet
-     * device.
-     */
-    private var twoPane: Boolean = false
-
-
     val REQUEST_TAKE_PHOTO = 1
+    lateinit var currentPhotoPath: String
+    lateinit var mAdapter: SimpleItemRecyclerViewAdapter
+    lateinit var firestoreDB: FirebaseFirestore
 
     private fun dispatchTakePictureIntent() {
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
@@ -73,7 +77,6 @@ class ItemListFragment : Fragment() {
     }
 
 
-    lateinit var currentPhotoPath: String
 
     @Throws(IOException::class)
     private fun createImageFile(): File {
@@ -90,20 +93,10 @@ class ItemListFragment : Fragment() {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        super.onCreate(savedInstanceState)
-        val root = inflater.inflate(R.layout.fragment_item_list, container, false)
-
-//        toolbar.title = title
-
+    fun setupAddItemButton(root: View) {
         val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
         fab.setOnClickListener { view ->
             dispatchTakePictureIntent()
-
 
             // Create a storage reference from our app
             // TODO(sdspikes): get this working -- Firebase Console won't let me enable Firebase Storage for some reason, try again tomorrow
@@ -129,61 +122,80 @@ class ItemListFragment : Fragment() {
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
-
-        if (item_detail_container != null) {
-            // The detail container view will be present only in the
-            // large-screen layouts (res/values-w900dp).
-            // If this view is present, then the
-            // activity should be in two-pane mode.
-            twoPane = true
-        }
-
-        setupRecyclerView(root.findViewById(R.id.item_list))
-        return root
     }
 
-    private fun setupRecyclerView(recyclerView: RecyclerView) {
-        recyclerView.adapter =
-            SimpleItemRecyclerViewAdapter(
-                activity as MainActivity,
-                ItemContent.ITEMS,
-                twoPane
-            )
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        super.onCreate(savedInstanceState)
+        val root = inflater.inflate(R.layout.fragment_item_list, container, false)
+        setupAddItemButton(root)
+        setupRecyclerView(root)
+        return root
+    }
+    lateinit var firestoreListener: ListenerRegistration
+    lateinit var recyclerView: RecyclerView
+
+    private fun timestampToDate(timestamp: Any?) : Date{
+        val firebaseTimestamp = timestamp as com.google.firebase.Timestamp
+        return firebaseTimestamp.toDate()
+    }
+    private fun setupRecyclerView(v: View) {
+        recyclerView = v.findViewById(R.id.item_list)
+
+        firestoreDB = FirebaseFirestore.getInstance()
+
+        getExistingItems(v)
+
+        firestoreListener = firestoreDB.collection("notes")
+            .addSnapshotListener { documentSnapshots, e ->
+                if (e != null) {
+                    Log.e(TAG, "Listen failed!", e)
+                    return@addSnapshotListener
+                }
+                val items: MutableList<ItemContent.ExpirableItem> = ArrayList()
+                for (doc in documentSnapshots!!) {
+                    items.add(ItemContent.ExpirableItem(doc.id, doc.data, timestampToDate(doc.data["expirationDate"])))
+                }
+                mAdapter = SimpleItemRecyclerViewAdapter(items, firestoreDB)
+                recyclerView.setAdapter(mAdapter)
+            }
+
+    }
+
+    private fun getExistingItems(v:View) {
+        firestoreDB.collection("items")
+            .get()
+            .addOnSuccessListener { result ->
+                Log.d(ContentValues.TAG, "got Items from firestore ${result}")
+                var items = ArrayList<ItemContent.ExpirableItem>()
+                for (document in result) {
+                    Log.d(ContentValues.TAG, "got item ${document} => ${document.data}")
+                    items.add(ItemContent.ExpirableItem(document.id, document.data, timestampToDate(document.data["expirationDate"])))
+                }
+
+                mAdapter = SimpleItemRecyclerViewAdapter(items, firestoreDB)
+                val mLayoutManager: RecyclerView.LayoutManager =
+                    LinearLayoutManager(v.context)
+                recyclerView.layoutManager = mLayoutManager
+                recyclerView.itemAnimator = DefaultItemAnimator()
+                recyclerView.adapter = mAdapter
+            }
+            .addOnFailureListener { exception ->
+                Log.w(ContentValues.TAG, "Error getting documents.", exception)
+            }
+
     }
 
     class SimpleItemRecyclerViewAdapter(
-        private val parentActivity: MainActivity,
-        private val values: List<ItemContent.ExpirableItem>,
-        private val twoPane: Boolean
+        private val values: MutableList<ItemContent.ExpirableItem>,
+        private val firestoreDB: FirebaseFirestore
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
 
-        private val onClickListener: View.OnClickListener
-
-        init {
-            onClickListener = View.OnClickListener { v ->
-                val item = v.tag as ItemContent.ExpirableItem
-                if (twoPane) {
-                    val fragment = ItemDetailFragment()
-                        .apply {
-                        arguments = Bundle().apply {
-                            putString(ItemDetailFragment.ARG_ITEM_ID, item.id)
-                        }
-                    }
-                    parentActivity.supportFragmentManager
-                        .beginTransaction()
-                        .replace(R.id.item_detail_container, fragment)
-                        .commit()
-                } else {
-                    val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
-                        putExtra(ItemDetailFragment.ARG_ITEM_ID, item.id)
-                    }
-                    v.context.startActivity(intent)
-                }
-            }
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val view = LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_list_content, parent, false)
             return ViewHolder(view)
@@ -191,20 +203,62 @@ class ItemListFragment : Fragment() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = values[position]
-            holder.idView.text = item.id
+            holder.expirationView.text = ItemContent.getShortDate(item.expirationDate)
             holder.contentView.text = item.name
 
             with(holder.itemView) {
-                tag = item
-                setOnClickListener(onClickListener)
+                setOnClickListener(View.OnClickListener { v ->
+                    val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
+                        putExtra(ItemDetailFragment.ARG_ITEM_ID, item.id)
+                    }
+                    v.context.startActivity(intent)
+                })
             }
+
+            holder.editView.setOnClickListener(View.OnClickListener {
+                updateItem(it, item) }
+            )
+
+            holder.deleteView.setOnClickListener(View.OnClickListener {
+                deleteItem(
+                    it,
+                    item.id,
+                    position
+                )
+            })
         }
 
         override fun getItemCount() = values.size
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val idView: TextView = view.id_text
+            val expirationView: TextView = view.expirationDate
             val contentView: TextView = view.content
+            val editView: TextView = view.edit
+            val deleteView: TextView = view.delete
         }
+
+        private fun updateItem(v: View, item: ItemContent.ExpirableItem) {
+            val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
+                putExtra(ItemDetailFragment.ARG_ITEM_ID, item.id)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // TODO: add other fields?
+                putExtra("UpdateId", item.id)
+                putExtra("UpdateName", item.name)
+                putExtra("UpdateDescription", item.description)
+            }
+            v.context.startActivity(intent)
+        }
+        private fun deleteItem(v: View, id: String, position: Int) {
+            firestoreDB.collection("items")
+                .document(id)
+                .delete()
+                .addOnCompleteListener {
+                    values.removeAt(position)
+                    notifyItemRemoved(position)
+                    notifyItemRangeChanged(position, values.size)
+                    Toast.makeText(v.context, "Item has been deleted!", Toast.LENGTH_SHORT).show()
+                }
+        }
+
     }
 }
