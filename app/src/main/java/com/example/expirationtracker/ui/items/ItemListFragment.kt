@@ -2,17 +2,13 @@ package com.example.expirationtracker.ui.items
 
 import android.content.ContentValues.TAG
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
-import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -20,15 +16,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.expirationtracker.R
 import com.example.expirationtracker.dummy.Items
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.ktx.storage
-import kotlinx.android.synthetic.main.item_list_content.view.*
-import java.io.File
-import java.io.IOException
-import java.text.SimpleDateFormat
 import java.util.*
 
 
@@ -44,8 +33,6 @@ class ItemListFragment : Fragment() {
 
     lateinit var mAdapter: SimpleItemRecyclerViewAdapter
     lateinit var firestoreDB: FirebaseFirestore
-
-
 
     fun setupAddItemButton(root: View) {
         val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
@@ -70,6 +57,7 @@ class ItemListFragment : Fragment() {
     lateinit var recyclerView: RecyclerView
 
     private fun timestampToDate(timestamp: Any?) : Date{
+        if (timestamp == null) return Calendar.getInstance().time
         val firebaseTimestamp = timestamp as com.google.firebase.Timestamp
         return firebaseTimestamp.toDate()
     }
@@ -87,7 +75,6 @@ class ItemListFragment : Fragment() {
         recyclerView.layoutManager = mLayoutManager
         recyclerView.itemAnimator = DefaultItemAnimator()
         recyclerView.adapter = mAdapter
-
 
         firestoreListener = firestoreDB.collection("items")
             .addSnapshotListener { documentSnapshots, e ->
@@ -119,7 +106,7 @@ class ItemListFragment : Fragment() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = Items.ITEMS[position]
             holder.expirationView.text = Items.getShortDate(item.expirationDate)
-            holder.contentView.text = item.name
+            holder.nameView.text = item.name
 
             with(holder.itemView) {
                 setOnClickListener(View.OnClickListener { v ->
@@ -147,9 +134,9 @@ class ItemListFragment : Fragment() {
         override fun getItemCount() = Items.size()
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val expirationView: TextView = view.expirationDate
-            val contentView: TextView = view.content
-            val deleteView: TextView = view.delete
+            val expirationView: TextView = view.findViewById(R.id.expirationDate)
+            val deleteView: TextView = view.findViewById(R.id.delete)
+            val nameView: TextView = view.findViewById(R.id.name)
         }
 
         private fun updateItem(v: View, item: Items.ExpirableItem) {

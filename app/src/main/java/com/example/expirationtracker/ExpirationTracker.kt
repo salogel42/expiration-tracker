@@ -14,7 +14,7 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 
-class MainActivity : AppCompatActivity() {
+class ExpirationTracker : AppCompatActivity() {
 
     private lateinit var appBarConfiguration: AppBarConfiguration
 

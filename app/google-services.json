@@ -42,6 +42,43 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879620136094:android:154792cfeb2f0ca71f6f8f",
+        "android_client_info": {
+          "package_name": "com.google.firebase.quickstart.auth"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "879620136094-mabut1au5edmqsm8o4kads86nqtbk326.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.google.firebase.quickstart.auth",
+            "certificate_hash": "a021cc5315c95ede4e94998adf5d816415c227e9"
+          }
+        },
+        {
+          "client_id": "879620136094-ms6rdab2plukkjujklrr7plpdc7rptjl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNPjObcNA6xliDSr8IYK0CpXUPeL8_pOs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "879620136094-ms6rdab2plukkjujklrr7plpdc7rptjl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

@@ -17,7 +17,7 @@
     <string name="google_title_text">Google Sign In</string>
     <string name="title_item_list">Items</string>
     <string name="title_item_detail">Item Detail</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="title_activity_main">Expiration Tracker</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_title">Expiration Tracker</string>
