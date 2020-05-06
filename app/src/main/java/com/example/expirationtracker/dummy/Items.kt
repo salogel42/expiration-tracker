@@ -29,6 +29,8 @@ object Items {
 
     //pull items from cloud firestore
     fun getExistingItems() {
+        Log.d(TAG, "inside getExistingItems")
+
         val db = Firebase.firestore
         Log.d(TAG, "getting Items from firestore")
         db.collection("items")

@@ -42,85 +42,10 @@ import java.util.*
  */
 class ItemListFragment : Fragment() {
 
-    val REQUEST_TAKE_PHOTO = 1
-    lateinit var currentPhotoPath: String
     lateinit var mAdapter: SimpleItemRecyclerViewAdapter
     lateinit var firestoreDB: FirebaseFirestore
 
-    private fun dispatchTakePictureIntent() {
-        Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
-            // Ensure that there's a camera activity to handle the intent
-            takePictureIntent.resolveActivity(activity?.packageManager!!)?.also {
-                // Create the File where the photo should go
-                val photoFile: File? = try {
-                    createImageFile()
-                } catch (ex: IOException) {
-                    // Error occurred while creating the File
-                    print("Error creating file")
-                    null
-                }
-                // Continue only if the File was successfully created
-                photoFile?.also {
-                    val photoURI: Uri = FileProvider.getUriForFile(
-                        requireActivity(),
-                        "com.example.expirationtracker.fileprovider",
-                        it
-                    )
-                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-                    startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO)
-                }
-            }
-        }
-    }
 
-
-
-    @Throws(IOException::class)
-    private fun createImageFile(): File {
-        // Create an image file name
-        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
-        val storageDir: File = activity?.getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!
-        return File.createTempFile(
-            "JPEG_${timeStamp}_", /* prefix */
-            ".jpg", /* suffix */
-            storageDir /* directory */
-        ).apply {
-            // Save a file: path for use with ACTION_VIEW intents
-            currentPhotoPath = absolutePath
-        }
-    }
-
-    //    TODO: move to itemdetail fragment or activity (not sure which yet
-    fun setupTakePictureButton(root: View) {
-        val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
-        fab.setOnClickListener { view ->
-            dispatchTakePictureIntent()
-
-            // Create a storage reference from our app
-            // TODO(sdspikes): get this working -- Firebase Console won't let me enable Firebase Storage for some reason, try again tomorrow
-            // TODO(sdspikes): don't hard-code this bucket
-            val storage = Firebase.storage("gs://expiration-images")
-            val storageRef = storage.reference
-
-            // Create a reference to "mountains.jpg"
-            var file = Uri.fromFile(File(currentPhotoPath))
-            val photoRef = storageRef.child("${file.lastPathSegment}")
-            var uploadTask = photoRef.putFile(file)
-
-            // Register observers to listen for when the download is done or if it fails
-            uploadTask.addOnFailureListener {
-                // Handle unsuccessful uploads
-                print("no worky")
-            }.addOnSuccessListener {
-                // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
-                // TODO(maybe grab the corresponding text from expiration-text?)
-                print("workeed")
-            }
-
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
-        }
-    }
 
     fun setupAddItemButton(root: View) {
         val fab: FloatingActionButton = root.findViewById(R.id.addItemButton)
@@ -153,8 +78,8 @@ class ItemListFragment : Fragment() {
 
         firestoreDB = FirebaseFirestore.getInstance()
 
-        val items = Items
-        items.getExistingItems()
+        Log.d(TAG, "about to call getExistingItems")
+        Items.getExistingItems()
 
         mAdapter = SimpleItemRecyclerViewAdapter(firestoreDB)
         val mLayoutManager: RecyclerView.LayoutManager =
@@ -164,7 +89,7 @@ class ItemListFragment : Fragment() {
         recyclerView.adapter = mAdapter
 
 
-        firestoreListener = firestoreDB.collection("notes")
+        firestoreListener = firestoreDB.collection("items")
             .addSnapshotListener { documentSnapshots, e ->
                 if (e != null) {
                     Log.e(TAG, "Listen failed!", e)
