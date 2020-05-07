@@ -2,9 +2,11 @@ package com.example.expirationtracker.dummy
 
 import android.content.ContentValues.TAG
 import android.util.Log
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.toObject
+import com.google.firebase.firestore.ktx.toObjects
 import com.google.firebase.ktx.Firebase
-import java.sql.Types.TIMESTAMP
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -27,6 +29,16 @@ object Items {
 
     private val COUNT = 25
 
+    fun timestampToDate(timestamp: Any?) : Date{
+        if (timestamp == null) return Calendar.getInstance().time
+        val firebaseTimestamp = timestamp as com.google.firebase.Timestamp
+        return firebaseTimestamp.toDate()
+    }
+
+    fun dateToTimestampString(date: Date) : String {
+        return com.google.firebase.Timestamp(date).toString()
+    }
+
     //pull items from cloud firestore
     fun getExistingItems() {
         Log.d(TAG, "inside getExistingItems")
@@ -35,13 +47,11 @@ object Items {
         Log.d(TAG, "getting Items from firestore")
         db.collection("items")
             .get()
-            .addOnSuccessListener { result ->
-                Log.d(TAG, "got Items from firestore ${result}")
-                for (document in result) {
-                    Log.d(TAG, "got item ${document} => ${document.data}")
-                    val timestamp = document.data["expirationDate"] as com.google.firebase.Timestamp
-                    val date = timestamp.toDate()
-                    addItem(ExpirableItem(document.id, document.data, date))
+            .addOnSuccessListener {
+                it.documents.forEach {
+                    var item = it.toObject<Items.ExpirableItem>()!!
+                    item.id = it.id
+                    addItem(item)
                 }
             }
             .addOnFailureListener { exception ->
@@ -79,20 +89,20 @@ object Items {
         return sdf.format(date)
     }
 
+
     /**
      * An object representing an item that will expire.
      */
-    data class ExpirableItem(val id: String, val name: String, val description: String, val imageFilename:String, val textFilename:String, val expirationDate:Date) {
-
-        constructor(id: String, data: Map<String, Any>, expDate: Date) : this(
-            id,
-            data["name"].toString(),
-            data["description"].toString(),
-            data["imageFilename"].toString(),
-            data["textFilename"].toString(),
-            expDate
-        )
+    data class ExpirableItem(
+        var id: String = "",
+        var name: String = "",
+        var notes: String = "",
+        var imageFilename:String = "",
+        var textFilename:String = "",
+        var expirationDate:Timestamp = Timestamp.now()
+    ) {
 
         override fun toString(): String = name
+
     }
 }

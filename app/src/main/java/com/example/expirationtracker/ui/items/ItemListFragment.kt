@@ -15,9 +15,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.expirationtracker.R
 import com.example.expirationtracker.dummy.Items
+import com.example.expirationtracker.dummy.Items.getShortDate
+import com.example.expirationtracker.dummy.Items.timestampToDate
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.ktx.toObject
 import java.util.*
 
 
@@ -56,11 +59,6 @@ class ItemListFragment : Fragment() {
     lateinit var firestoreListener: ListenerRegistration
     lateinit var recyclerView: RecyclerView
 
-    private fun timestampToDate(timestamp: Any?) : Date{
-        if (timestamp == null) return Calendar.getInstance().time
-        val firebaseTimestamp = timestamp as com.google.firebase.Timestamp
-        return firebaseTimestamp.toDate()
-    }
     private fun setupRecyclerView(v: View) {
         recyclerView = v.findViewById(R.id.item_list)
 
@@ -69,7 +67,7 @@ class ItemListFragment : Fragment() {
         Log.d(TAG, "about to call getExistingItems")
         Items.getExistingItems()
 
-        mAdapter = SimpleItemRecyclerViewAdapter(firestoreDB)
+        mAdapter = SimpleItemRecyclerViewAdapter(Items.ITEMS, firestoreDB)
         val mLayoutManager: RecyclerView.LayoutManager =
             LinearLayoutManager(v.context)
         recyclerView.layoutManager = mLayoutManager
@@ -82,17 +80,23 @@ class ItemListFragment : Fragment() {
                     Log.e(TAG, "Listen failed!", e)
                     return@addSnapshotListener
                 }
+                // reset items from database rather than trying to update
                 Items.clearAll()
-                for (doc in documentSnapshots!!) {
-                    Items.addItem(Items.ExpirableItem(doc.id, doc.data, timestampToDate(doc.data["expirationDate"])))
+                Log.d(TAG, "Size after update: ${Items.size()}")
+
+                documentSnapshots?.documents?.forEach {
+                    var item = it.toObject<Items.ExpirableItem>()!!
+                    item.id = it.id
+                    Items.addItem(item)
                 }
-                mAdapter = SimpleItemRecyclerViewAdapter(firestoreDB)
+                mAdapter = SimpleItemRecyclerViewAdapter(Items.ITEMS, firestoreDB)
                 recyclerView.setAdapter(mAdapter)
             }
 
     }
 
     class SimpleItemRecyclerViewAdapter(
+        private val items: List<Items.ExpirableItem>,
         private val firestoreDB: FirebaseFirestore
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
@@ -105,22 +109,16 @@ class ItemListFragment : Fragment() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = Items.ITEMS[position]
-            holder.expirationView.text = Items.getShortDate(item.expirationDate)
+            holder.expirationView.text = getShortDate(timestampToDate(item.expirationDate))
             holder.nameView.text = item.name
 
             with(holder.itemView) {
                 setOnClickListener(View.OnClickListener { v ->
+                    Log.d(TAG, "about to update item ${item.id} - ${item.name}")
                     updateItem(v, item)
-//                    val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
-//                        putExtra(ItemDetailFragment.ARG_ITEM_ID, item.id)
-//                    }
-//                    v.context.startActivity(intent)
                 })
             }
 
-//            holder.editView.setOnClickListener(View.OnClickListener {
-//                updateItem(it, item) }
-//            )
 
             holder.deleteView.setOnClickListener(View.OnClickListener {
                 deleteItem(
@@ -131,7 +129,7 @@ class ItemListFragment : Fragment() {
             })
         }
 
-        override fun getItemCount() = Items.size()
+        override fun getItemCount() = items.size
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val expirationView: TextView = view.findViewById(R.id.expirationDate)
@@ -141,6 +139,7 @@ class ItemListFragment : Fragment() {
 
         private fun updateItem(v: View, item: Items.ExpirableItem) {
             val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
+                Log.d(TAG, "sending extras to intent to update item ${item.id} - ${item.name}")
                 putExtra(ItemDetailActivity.ARG_ITEM_ID, item.id)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
@@ -151,7 +150,7 @@ class ItemListFragment : Fragment() {
                 .document(id)
                 .delete()
                 .addOnCompleteListener {
-                    Items.removeItem(position)
+//                    Items.removeItem(position)
                     notifyItemRemoved(position)
                     notifyItemRangeChanged(position, Items.size())
                     Toast.makeText(v.context, "Item has been deleted!", Toast.LENGTH_SHORT).show()

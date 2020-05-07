@@ -40,6 +40,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+
+
         <LinearLayout
             android:id="@+id/item_detail"
             style="?android:attr/textAppearanceLarge"
@@ -48,6 +51,23 @@
             android:padding="16dp"
             android:textIsSelectable="true"
             android:orientation="vertical">
+
+
+            <EditText
+                android:id="@+id/edtName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:hint="item name"
+                android:inputType="textShortMessage" />
+
+            <EditText
+                android:id="@+id/edtNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:hint="Notes (e.g. where do you keep it? whose is it?)"
+                android:inputType="textMultiLine" />
 
             <TextView
                 android:id="@+id/expDate"
@@ -69,8 +89,7 @@
                     android:id="@+id/expirationDatePicker"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/pick_expiration_date"
-                    android:onClick="showDatePickerDialog" />
+                    android:text="@string/pick_expiration_date"/>
 
                 <Button
                     android:id="@+id/expirationImage"
@@ -79,6 +98,8 @@
                     android:onClick="getExpirationImage"
                     android:text="Take Image" />
             </LinearLayout>
+
+
 
             <TextView
                 android:id="@+id/notifDate"
@@ -107,29 +128,6 @@
                 android:layout_height="wrap_content"
                 android:onClick="getItemImage"
                 android:text="Take Image of Whole Item" />
-
-            <EditText
-                android:id="@+id/edtDescription"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:hint="item description (what is it for?)"
-                android:inputType="textPersonName" />
-
-            <EditText
-                android:id="@+id/edtNotes"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:hint="Notes (e.g. where do you keep it? whose is it?)"
-                android:inputType="textMultiLine" />
-
-            <Button
-                android:id="@+id/btAdd"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="Submit" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

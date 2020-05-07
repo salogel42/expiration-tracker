@@ -10,10 +10,13 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.example.expirationtracker.DatePickerFragment
 import com.example.expirationtracker.R
+import com.example.expirationtracker.databinding.FragmentItemDetailBinding
 import com.example.expirationtracker.dummy.Items
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
@@ -41,68 +44,73 @@ class ItemDetailActivity : AppCompatActivity() {
     val REQUEST_TAKE_PHOTO = 1
     lateinit var currentPhotoPath: String
 
-    lateinit var edtTitle: EditText
-    lateinit var edtDescription: EditText
-    lateinit var btAdd: Button
 
     lateinit private var firestoreDB: FirebaseFirestore
-    lateinit private var id: String
-    lateinit private var item: Items.ExpirableItem
+    private var id = ""
+    private var item = Items.ExpirableItem()
+    lateinit var binding:FragmentItemDetailBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        binding = FragmentItemDetailBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+//        binding.item = item
         setContentView(R.layout.fragment_item_detail)
         setSupportActionBar(detail_toolbar)
 
-        addItemButton.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own detail action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
-        }
-
-        // Show the Up button in the action bar.
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
-        edtDescription = item_detail.edtDescription
-        btAdd = item_detail.btAdd
-
-        firestoreDB = FirebaseFirestore.getInstance()
-        savedInstanceState?.let {
+        var bundle = intent.extras
+        bundle?.let {
             Log.d(TAG, "got bundle: " + it)
             if (it.containsKey(ARG_ITEM_ID)) {
-                item = Items.ITEM_MAP[it.getString(ARG_ITEM_ID)]!!
+                id = it.getString(ARG_ITEM_ID).toString()
+                item = Items.ITEM_MAP[id]!!
+                Log.d(TAG, "got id ${id} - item is ${item} with ${item.notes}")
+
+                edtName.setText(item.name)
+                edtNotes.setText(item.notes)
+
                 // load the rest of the data
                 toolbar_layout?.title = item?.name
             }
         }
 
-        btAdd.setOnClickListener {
-            Log.d(TAG, "should save it off now")
-//            val title = edtTitle.text.toString()
-//            val content: String = edtContent.getText().toString()
-//            if (title.length > 0) {
-//                if (id.length > 0) {
-//                    updateItem(id, title, content)
-//                } else {
-//                    createItem(title, content)
-//                }
-//            }
-//            finish()
+
+        firestoreDB = FirebaseFirestore.getInstance()
+
+        addItemButton.setOnClickListener {
+            Log.d(TAG, "should save it off now pre ${item} - edittext says ${edtName.text}, notes ${item.notes}, et: ${edtNotes.text}")
+            item.name = edtName.text.toString()
+            item.notes = edtNotes.text.toString()
+            Log.d(TAG, "should save it off now post ${item} - edittext says ${edtName.text}, notes ${item.notes}, et: ${edtNotes.text}")
+
+            if (id == "") {
+                firestoreDB.collection("items")
+                    .add(item)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "DocumentSnapshot successfully written!")
+                        Toast.makeText(this,  "New item saved", Toast.LENGTH_LONG)
+                    }
+                    .addOnFailureListener {
+                        e -> Log.w(TAG, "Error writing document", e)
+                        Toast.makeText(this,  "New item wasn't saved", Toast.LENGTH_LONG)
+                    }
+            } else {
+                firestoreDB.collection("items")
+                    .document(id)
+                    .set(item)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "DocumentSnapshot successfully updated!")
+                        Toast.makeText(this,  "Item updated!", Toast.LENGTH_LONG)
+                    }
+                    .addOnFailureListener {
+                            e -> Log.w(TAG, "Error writing document", e)
+                        Toast.makeText(this,  "Updated item wasn't saved", Toast.LENGTH_LONG)
+                    }
+            }
+            finish()
         }
-//        Bundle().apply {
-//            id = getString("UpdateNoteId")!!
-//            edtTitle.setText(getString("UpdateNoteTitle"))
-//            edtDescription.setText(getString("UpdateNoteContent"))
-//        }
-
     }
-
-    //
-//
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//
-//
-//    }
 
     companion object {
         const val ARG_ITEM_ID = "item_id"
@@ -121,7 +129,6 @@ class ItemDetailActivity : AppCompatActivity() {
         val newFragment = DatePickerFragment()
         newFragment.show(supportFragmentManager, "datePicker")
     }
-
 
     private fun dispatchTakePictureIntent() {
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
