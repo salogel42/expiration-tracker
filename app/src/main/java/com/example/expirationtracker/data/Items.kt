@@ -1,11 +1,10 @@
-package com.example.expirationtracker.dummy
+package com.example.expirationtracker.data
 
 import android.content.ContentValues.TAG
 import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObject
-import com.google.firebase.firestore.ktx.toObjects
 import com.google.firebase.ktx.Firebase
 import java.text.SimpleDateFormat
 import java.util.*
@@ -49,7 +48,7 @@ object Items {
             .get()
             .addOnSuccessListener {
                 it.documents.forEach {
-                    var item = it.toObject<Items.ExpirableItem>()!!
+                    var item = it.toObject<ExpirableItem>()!!
                     item.id = it.id
                     addItem(item)
                 }
@@ -81,7 +80,8 @@ object Items {
 
     fun removeItem(position: Int) {
         ITEMS.removeAt(position)
-        ITEM_MAP.remove(ITEMS[position].id)
+        ITEM_MAP.remove(
+            ITEMS[position].id)
     }
 
     fun getShortDate(date: Date) : String {

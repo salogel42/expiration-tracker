@@ -14,14 +14,13 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.expirationtracker.R
-import com.example.expirationtracker.dummy.Items
-import com.example.expirationtracker.dummy.Items.getShortDate
-import com.example.expirationtracker.dummy.Items.timestampToDate
+import com.example.expirationtracker.data.Items
+import com.example.expirationtracker.data.Items.getShortDate
+import com.example.expirationtracker.data.Items.timestampToDate
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.toObject
-import java.util.*
 
 
 /**
