@@ -69,52 +69,31 @@
                 android:hint="Notes (e.g. where do you keep it? whose is it?)"
                 android:inputType="textMultiLine" />
 
-            <TextView
+            <EditText
                 android:id="@+id/expDate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="30dp"
-                android:hint="Expiration Date"
-                android:inputType="textPersonName" />
-            <LinearLayout
-                android:id="@+id/expiration_actions"
-                style="?android:attr/textAppearanceLarge"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="16dp"
-                android:textIsSelectable="true"
-                android:orientation="horizontal">
+                android:focusableInTouchMode="false"
+                android:inputType="date"
+                android:hint="Expiration Date" />
 
-                <Button
-                    android:id="@+id/expirationDatePicker"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/pick_expiration_date"/>
-
-                <Button
-                    android:id="@+id/expirationImage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:onClick="getExpirationImage"
-                    android:text="Take Image" />
-            </LinearLayout>
+            <Button
+                android:id="@+id/expirationImage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="getExpirationImage"
+                android:text="Take Image to get Expiration" />
 
 
-
-            <TextView
+            <EditText
                 android:id="@+id/notifDate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="30dp"
                 android:hint="Notification Date"
-                android:inputType="textPersonName" />
-
-            <Button
-                android:id="@+id/notificationDatePicker"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Set notification date"
-                android:onClick="showDatePickerDialog" />
+                android:focusableInTouchMode="false"
+                android:inputType="date" />
 
             <Button
                 android:id="@+id/barcodeImage"
@@ -122,6 +101,7 @@
                 android:layout_height="wrap_content"
                 android:onClick="scanBarcode"
                 android:text="Scan Barcode" />
+
             <Button
                 android:id="@+id/notificationImage"
                 android:layout_width="wrap_content"

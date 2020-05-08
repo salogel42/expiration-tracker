@@ -99,6 +99,7 @@ object Items {
         var notes: String = "",
         var imageFilename:String = "",
         var textFilename:String = "",
+        var notificationDate:Timestamp = Timestamp.now(),
         var expirationDate:Timestamp = Timestamp.now()
     ) {
 

@@ -1,20 +1,24 @@
 package com.example.expirationtracker.ui.items
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import com.example.expirationtracker.DatePickerFragment
 import com.example.expirationtracker.R
 import com.example.expirationtracker.databinding.FragmentItemDetailBinding
 import com.example.expirationtracker.data.Items
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
@@ -49,7 +53,7 @@ class ItemDetailActivity : AppCompatActivity() {
 
         binding = FragmentItemDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
-//        binding.item = item
+//        TODO(maybe): set up actual 2-way databinding
         setContentView(R.layout.fragment_item_detail)
         setSupportActionBar(detail_toolbar)
 
@@ -57,26 +61,28 @@ class ItemDetailActivity : AppCompatActivity() {
         bundle?.let {
             Log.d(TAG, "got bundle: " + it)
             if (it.containsKey(ARG_ITEM_ID)) {
+
+                // Grab the id and get the corresponding object to fill the fields
                 id = it.getString(ARG_ITEM_ID).toString()
                 item = Items.ITEM_MAP[id]!!
-                Log.d(TAG, "got id ${id} - item is ${item} with ${item.notes}")
 
                 edtName.setText(item.name)
                 edtNotes.setText(item.notes)
 
-                // load the rest of the data
-                toolbar_layout?.title = item?.name
+                toolbar_layout?.title = "Item Details"
             }
         }
 
+        setupDatePicker(item.expirationDate, expDate)
+        setupDatePicker(item.notificationDate, notifDate)
 
         firestoreDB = FirebaseFirestore.getInstance()
 
         addItemButton.setOnClickListener {
-            Log.d(TAG, "should save it off now pre ${item} - edittext says ${edtName.text}, notes ${item.notes}, et: ${edtNotes.text}")
             item.name = edtName.text.toString()
             item.notes = edtNotes.text.toString()
-            Log.d(TAG, "should save it off now post ${item} - edittext says ${edtName.text}, notes ${item.notes}, et: ${edtNotes.text}")
+            item.expirationDate = Timestamp(Date(expDate.text.toString()))
+            item.notificationDate = Timestamp(Date(notifDate.text.toString()))
 
             if (id == "") {
                 firestoreDB.collection("items")
@@ -106,6 +112,17 @@ class ItemDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupDatePicker(ts : Timestamp, text: EditText) {
+        text.setOnClickListener {
+            var c = Calendar.getInstance()
+            c.time = Date(text.text.toString())
+            DatePickerDialog(this, DatePickerDialog.OnDateSetListener { _, y, m, d ->
+                c.set(y, m, d)
+                text.setText(Items.getShortDate(Date(c.timeInMillis)))
+            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+        }
+    }
+
     companion object {
         const val ARG_ITEM_ID = "item_id"
     }
@@ -119,10 +136,6 @@ class ItemDetailActivity : AppCompatActivity() {
             else -> super.onOptionsItemSelected(item)
         }
 
-    fun showDatePickerDialog(v: View) {
-        val newFragment = DatePickerFragment()
-        newFragment.show(supportFragmentManager, "datePicker")
-    }
 
     private fun dispatchTakePictureIntent() {
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
