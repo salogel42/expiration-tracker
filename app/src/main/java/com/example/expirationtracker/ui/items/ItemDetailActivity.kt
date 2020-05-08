@@ -3,7 +3,6 @@ package com.example.expirationtracker.ui.items
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -12,7 +11,6 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.example.expirationtracker.R
@@ -39,11 +37,15 @@ class ItemDetailActivity : AppCompatActivity() {
 
     private val TAG = "ItemDetailActivity"
 
-    val REQUEST_TAKE_PHOTO = 1
+    val TAKE_EXPIRATION_PHOTO = 1
+    val TAKE_ITEM_PHOTO = 2
+    val TAKE_BARCODE_PHOTO = 3
     lateinit var currentPhotoPath: String
 
 
     lateinit private var firestoreDB: FirebaseFirestore
+    private var currentImageFilename: String = ""
+    private var itemImageFilename: String = ""
     private var id = ""
     private var item = Items.ExpirableItem()
     lateinit var binding:FragmentItemDetailBinding
@@ -68,6 +70,7 @@ class ItemDetailActivity : AppCompatActivity() {
 
                 edtName.setText(item.name)
                 edtNotes.setText(item.notes)
+                loadImage(item.imageFilename)
 
                 toolbar_layout?.title = "Item Details"
             }
@@ -83,6 +86,7 @@ class ItemDetailActivity : AppCompatActivity() {
             item.notes = edtNotes.text.toString()
             item.expirationDate = Timestamp(Date(expDate.text.toString()))
             item.notificationDate = Timestamp(Date(notifDate.text.toString()))
+            item.imageFilename = itemImageFilename
 
             if (id == "") {
                 firestoreDB.collection("items")
@@ -113,6 +117,7 @@ class ItemDetailActivity : AppCompatActivity() {
     }
 
     private fun setupDatePicker(ts : Timestamp, text: EditText) {
+        text.setText(Items.getShortDate(ts.toDate()))
         text.setOnClickListener {
             var c = Calendar.getInstance()
             c.time = Date(text.text.toString())
@@ -136,8 +141,31 @@ class ItemDetailActivity : AppCompatActivity() {
             else -> super.onOptionsItemSelected(item)
         }
 
+    private fun loadImage(fileName: String) {
+        if (fileName == "") return
 
-    private fun dispatchTakePictureIntent() {
+        val storageDir: File = getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!
+        val fullPath = "${storageDir}/${fileName}"
+        val uri = Uri.parse(fullPath)
+
+        var file = File(fullPath);
+        if(file.exists())
+            itemImage.setImageURI(uri)
+        else {
+            // File doesn't exist locally, so we need to pull it from the Cloud Storage bucket
+            // TODO: move storage url to a config/env file
+            val storage = Firebase.storage("gs://expiration-item-images")
+            val storageRef = storage.reference
+            val photoRef = storageRef.child(fileName)
+            val localFile = File(storageDir, fileName)
+            photoRef.getFile(localFile).addOnSuccessListener {
+                itemImage.setImageURI(uri)
+            }
+        }
+
+    }
+
+    private fun dispatchTakePictureIntent(action: Int) {
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
             // Ensure that there's a camera activity to handle the intent
             takePictureIntent.resolveActivity(packageManager)?.also {
@@ -157,7 +185,7 @@ class ItemDetailActivity : AppCompatActivity() {
                         it
                     )
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-                    startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO)
+                    startActivityForResult(takePictureIntent, action)
                 }
             }
         }
@@ -190,7 +218,8 @@ class ItemDetailActivity : AppCompatActivity() {
 
         // Create a reference to our new image
         var file = Uri.fromFile(File(currentPhotoPath))
-        val photoRef = storageRef.child("${file.lastPathSegment}")
+        currentImageFilename = file.lastPathSegment.toString()
+        val photoRef = storageRef.child(currentImageFilename)
         var uploadTask = photoRef.putFile(file)
 
         // Register observers to listen for when the download is done or if it fails
@@ -204,8 +233,24 @@ class ItemDetailActivity : AppCompatActivity() {
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TAKE_EXPIRATION_PHOTO && resultCode == RESULT_OK) {
+            uploadImageToCloudStorage("gs://expiration-ocr-images")
+        }
+        if (requestCode == TAKE_ITEM_PHOTO && resultCode == RESULT_OK) {
+            uploadImageToCloudStorage("gs://expiration-item-images")
+//            imagePath = "gs://expiration-item-images/${imagePath}"
+            var uri = Uri.fromFile(File(currentPhotoPath))
+            itemImageFilename = currentImageFilename
+            Log.d(TAG, "took image, path: ${currentPhotoPath}, filename ${itemImageFilename}")
+            itemImage.setImageURI(uri)
+            Log.d(TAG, "took image, Uri: ${uri}")
+        }
+    }
+
     fun getExpirationImage(view: View) {
-        dispatchTakePictureIntent()
+        dispatchTakePictureIntent(TAKE_EXPIRATION_PHOTO)
 //        val getContent = registerForActivityResult(GetContent()) { uri: Uri? ->
 //            // Handle the returned Uri
 //        }
@@ -213,12 +258,12 @@ class ItemDetailActivity : AppCompatActivity() {
         // TODO: kick off OCR
     }
     fun getItemImage(view: View) {
-        dispatchTakePictureIntent()
+        dispatchTakePictureIntent(TAKE_ITEM_PHOTO)
         Log.d(TAG, "took pic, at ${currentPhotoPath}")
         // TODO: store it somewhere, also show thumbnail/preview on the details page, click through for full sized?
     }
     fun scanBarcode(view: View) {
-        dispatchTakePictureIntent()
+        dispatchTakePictureIntent(TAKE_BARCODE_PHOTO)
         Log.d(TAG, "took pic, at ${currentPhotoPath}")
         // TODO: maybe the live barcode thingy instead of taking an image -- extract barcode to store
         // TODO: later, look up barcode in product api
