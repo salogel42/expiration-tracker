@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.expirationtracker"
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 29
         multiDexEnabled true
         versionCode 1
@@ -69,7 +69,16 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore-ktx:21.4.3'
     def multidex_version = "2.0.1"
     implementation "androidx.multidex:multidex:$multidex_version"
+
+    implementation 'com.google.firebase:firebase-ml-vision:24.0.3'
+    implementation 'com.google.firebase:firebase-ml-vision-barcode-model:16.1.1'
+
+    def camerax_version = '1.0.0-alpha06'
+    implementation "androidx.camera:camera-core:${camerax_version}"
+    implementation "androidx.camera:camera-camera2:${camerax_version}"
+
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+    implementation group: 'com.google.guava', name: 'guava', version: '27.0.1-android'
 }

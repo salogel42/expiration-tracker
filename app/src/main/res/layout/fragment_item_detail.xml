@@ -95,6 +95,14 @@
                 android:focusableInTouchMode="false"
                 android:inputType="date" />
 
+            <TextView
+                android:id="@+id/barcodeText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:hint="Barcode not set" />
+
+
             <Button
                 android:id="@+id/barcodeImage"
                 android:layout_width="wrap_content"

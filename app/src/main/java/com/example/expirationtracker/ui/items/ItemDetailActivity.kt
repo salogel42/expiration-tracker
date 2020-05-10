@@ -14,15 +14,18 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.example.expirationtracker.R
-import com.example.expirationtracker.databinding.FragmentItemDetailBinding
 import com.example.expirationtracker.data.Items
+import com.example.expirationtracker.databinding.FragmentItemDetailBinding
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.ml.vision.FirebaseVision
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.fragment_item_detail.*
 import java.io.File
 import java.io.IOException
+import java.lang.Math.E
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -87,6 +90,7 @@ class ItemDetailActivity : AppCompatActivity() {
             item.expirationDate = Timestamp(Date(expDate.text.toString()))
             item.notificationDate = Timestamp(Date(notifDate.text.toString()))
             item.imageFilename = itemImageFilename
+            item.barcode = barcodeText.text.toString()
 
             if (id == "") {
                 firestoreDB.collection("items")
@@ -208,19 +212,13 @@ class ItemDetailActivity : AppCompatActivity() {
         }
     }
 
-    // TODO: get storage stuff working
-    // "gs://expiration-images"
-    fun uploadImageToCloudStorage(url: String) {
-        // TODO(sdspikes): get this working -- Firebase Console won't let me enable Firebase Storage for some reason, try again tomorrow
-        // TODO(sdspikes): don't hard-code this bucket
+    fun uploadImageToCloudStorage(url: String, fileName: String, uri: Uri) {
         val storage = Firebase.storage(url)
         val storageRef = storage.reference
 
         // Create a reference to our new image
-        var file = Uri.fromFile(File(currentPhotoPath))
-        currentImageFilename = file.lastPathSegment.toString()
-        val photoRef = storageRef.child(currentImageFilename)
-        var uploadTask = photoRef.putFile(file)
+        val photoRef = storageRef.child(fileName)
+        var uploadTask = photoRef.putFile(uri)
 
         // Register observers to listen for when the download is done or if it fails
         uploadTask.addOnFailureListener {
@@ -235,37 +233,61 @@ class ItemDetailActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == TAKE_EXPIRATION_PHOTO && resultCode == RESULT_OK) {
-            uploadImageToCloudStorage("gs://expiration-ocr-images")
+        if (resultCode != RESULT_OK) {
+            Log.e(TAG, "Intent not ok")
+            return
         }
-        if (requestCode == TAKE_ITEM_PHOTO && resultCode == RESULT_OK) {
-            uploadImageToCloudStorage("gs://expiration-item-images")
-//            imagePath = "gs://expiration-item-images/${imagePath}"
-            var uri = Uri.fromFile(File(currentPhotoPath))
+        var uri = Uri.fromFile(File(currentPhotoPath))
+        currentImageFilename = uri.lastPathSegment.toString()
+        Log.d(TAG, "took image, Uri: ${uri}")
+        if (requestCode == TAKE_EXPIRATION_PHOTO) {
+            // TODO: Look up best practice for where to put the cloud storage strings
+            //       - in config files? constants? strings.xml?
+            uploadImageToCloudStorage("gs://expiration-ocr-images", currentImageFilename, uri)
+            // TODO: kick off OCR
+            return
+        }
+        if (requestCode == TAKE_ITEM_PHOTO) {
+            uploadImageToCloudStorage("gs://expiration-item-images", currentImageFilename, uri)
             itemImageFilename = currentImageFilename
-            Log.d(TAG, "took image, path: ${currentPhotoPath}, filename ${itemImageFilename}")
             itemImage.setImageURI(uri)
-            Log.d(TAG, "took image, Uri: ${uri}")
         }
+        if (requestCode == TAKE_BARCODE_PHOTO) {
+            val image: FirebaseVisionImage
+            try {
+                image = FirebaseVisionImage.fromFilePath(this, uri)
+                val detector = FirebaseVision.getInstance()
+                    .visionBarcodeDetector
+
+                val result = detector.detectInImage(image)
+                    .addOnSuccessListener { barcodes ->
+                        // TODO: if multiple, ask user which to use?
+                        for (barcode in barcodes) {
+                            Log.d(TAG, "got barcode: $barcode.rawValue" )
+                            barcodeText.text = barcode.rawValue
+                            // TODO: look up barcode in barcodelookup api
+                        }
+                    }
+                    .addOnFailureListener {
+                        Log.e(TAG, "barcode ml failed $it" )
+                    }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+
     }
 
     fun getExpirationImage(view: View) {
         dispatchTakePictureIntent(TAKE_EXPIRATION_PHOTO)
-//        val getContent = registerForActivityResult(GetContent()) { uri: Uri? ->
-//            // Handle the returned Uri
-//        }
-        Log.d(TAG, "took pic, at ${currentPhotoPath}")
-        // TODO: kick off OCR
     }
     fun getItemImage(view: View) {
         dispatchTakePictureIntent(TAKE_ITEM_PHOTO)
-        Log.d(TAG, "took pic, at ${currentPhotoPath}")
-        // TODO: store it somewhere, also show thumbnail/preview on the details page, click through for full sized?
     }
     fun scanBarcode(view: View) {
-        dispatchTakePictureIntent(TAKE_BARCODE_PHOTO)
-        Log.d(TAG, "took pic, at ${currentPhotoPath}")
         // TODO: maybe the live barcode thingy instead of taking an image -- extract barcode to store
-        // TODO: later, look up barcode in product api
+        dispatchTakePictureIntent(TAKE_BARCODE_PHOTO)
     }
+
+
 }

@@ -97,10 +97,11 @@ object Items {
         var id: String = "",
         var name: String = "",
         var notes: String = "",
-        var imageFilename:String = "",
-        var textFilename:String = "",
-        var notificationDate:Timestamp = Timestamp.now(),
-        var expirationDate:Timestamp = Timestamp.now()
+        var imageFilename: String = "",
+        var textFilename: String = "",
+        var notificationDate: Timestamp = Timestamp.now(),
+        var expirationDate: Timestamp = Timestamp.now(),
+        var barcode: String = ""
     ) {
 
         override fun toString(): String = name
