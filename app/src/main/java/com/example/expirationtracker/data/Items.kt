@@ -101,7 +101,9 @@ object Items {
         var textFilename: String = "",
         var notificationDate: Timestamp = Timestamp.now(),
         var expirationDate: Timestamp = Timestamp.now(),
-        var barcode: String = ""
+        var barcode: String = "",
+        var productName: String = "",
+        var productLink: String = ""
     ) {
 
         override fun toString(): String = name

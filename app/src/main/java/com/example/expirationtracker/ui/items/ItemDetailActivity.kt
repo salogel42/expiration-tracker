@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.View.VISIBLE
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -29,6 +30,7 @@ import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.storage.UploadTask
 import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.fragment_item_detail.*
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.lang.Math.E
@@ -273,12 +275,16 @@ class ItemDetailActivity : AppCompatActivity() {
                     .addOnSuccessListener { barcodes ->
                         // TODO: if multiple, ask user which to use?
                         for (barcode in barcodes) {
-                            Log.d(TAG, "got barcode: $barcode.rawValue" )
+                            Log.d(TAG, "got barcode: ${barcode.rawValue}" )
                             barcodeText.text = barcode.rawValue
                             // TODO: look up barcode in barcodelookup api
 
                             val queue = Volley.newRequestQueue(this)
                             val url = "https://api.barcodelookup.com/v2/products?barcode=${barcode.rawValue}&key=4c4h7t9vq9cx6znp12q980h55mkpr7"
+
+                            item.productLink = "https://www.barcodelookup.com/${barcode.rawValue}"
+                            productLink.text = item.productLink
+                            productLink.visibility = VISIBLE
 
                             // Request a string response from the provided URL.
                             val stringRequest = StringRequest(
@@ -286,7 +292,12 @@ class ItemDetailActivity : AppCompatActivity() {
                                 com.android.volley.Response.Listener<String> { response ->
                                     // Display the first 500 characters of the response string.
                                     Log.d(TAG, "from barcodelookup: $response")
-                                    // TODO: parse the string to get product_name and the product page link
+                                    var json = JSONObject(response)
+                                    item.productName = json.getJSONArray("products").getJSONObject(0).get("product_name").toString()
+
+
+                                    if (edtName.text.toString() == "")
+                                        edtName.setText(item.productName)
                                 },
                                 com.android.volley.Response.ErrorListener { })
 
