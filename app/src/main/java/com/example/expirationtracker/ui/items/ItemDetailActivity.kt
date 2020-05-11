@@ -1,7 +1,6 @@
 package com.example.expirationtracker.ui.items
 
 import android.app.DatePickerDialog
-import android.app.DownloadManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -21,8 +20,8 @@ import com.android.volley.toolbox.Volley
 import com.example.expirationtracker.R
 import com.example.expirationtracker.data.Items
 import com.example.expirationtracker.databinding.FragmentItemDetailBinding
-import com.google.android.gms.common.api.Response
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.ml.vision.FirebaseVision
@@ -33,7 +32,6 @@ import kotlinx.android.synthetic.main.fragment_item_detail.*
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
-import java.lang.Math.E
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -82,6 +80,11 @@ class ItemDetailActivity : AppCompatActivity() {
                 edtName.setText(item.name)
                 edtNotes.setText(item.notes)
                 loadImage(item.imageFilename)
+                barcodeText.setText(item.barcode)
+                if (item.productLink != "") {
+                    productLink.setText(item.productLink)
+                    productLink.visibility = VISIBLE
+                }
 
                 toolbar_layout?.title = "Item Details"
             }
@@ -276,7 +279,8 @@ class ItemDetailActivity : AppCompatActivity() {
                         // TODO: if multiple, ask user which to use?
                         for (barcode in barcodes) {
                             Log.d(TAG, "got barcode: ${barcode.rawValue}" )
-                            barcodeText.text = barcode.rawValue
+//                            item.barcode = barcode.rawValue.toString()
+                            barcodeText.setText(barcode.rawValue.toString())
                             // TODO: look up barcode in barcodelookup api
 
                             val queue = Volley.newRequestQueue(this)
@@ -293,8 +297,11 @@ class ItemDetailActivity : AppCompatActivity() {
                                     // Display the first 500 characters of the response string.
                                     Log.d(TAG, "from barcodelookup: $response")
                                     var json = JSONObject(response)
-                                    item.productName = json.getJSONArray("products").getJSONObject(0).get("product_name").toString()
+                                    var product = json.getJSONArray("products").getJSONObject(0)
+                                    item.productName = product.get("product_name").toString()
 
+                                    if (edtNotes.text.toString() == "")
+                                        edtNotes.setText(product.get("description").toString())
 
                                     if (edtName.text.toString() == "")
                                         edtName.setText(item.productName)

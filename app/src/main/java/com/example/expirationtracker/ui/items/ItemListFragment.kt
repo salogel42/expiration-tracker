@@ -18,9 +18,11 @@ import com.example.expirationtracker.data.Items
 import com.example.expirationtracker.data.Items.getShortDate
 import com.example.expirationtracker.data.Items.timestampToDate
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.toObject
+import com.google.firebase.ktx.Firebase
 
 
 /**
@@ -74,6 +76,7 @@ class ItemListFragment : Fragment() {
         recyclerView.adapter = mAdapter
 
         firestoreListener = firestoreDB.collection("items")
+            .whereEqualTo("userId", Firebase.auth.currentUser?.uid)
             .addSnapshotListener { documentSnapshots, e ->
                 if (e != null) {
                     Log.e(TAG, "Listen failed!", e)

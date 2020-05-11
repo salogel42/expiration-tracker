@@ -3,6 +3,8 @@ package com.example.expirationtracker.data
 import android.content.ContentValues.TAG
 import android.util.Log
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.ktx.Firebase
@@ -103,10 +105,9 @@ object Items {
         var expirationDate: Timestamp = Timestamp.now(),
         var barcode: String = "",
         var productName: String = "",
-        var productLink: String = ""
+        var productLink: String = "",
+        var userId: String? = Firebase.auth.currentUser?.uid
     ) {
-
         override fun toString(): String = name
-
     }
 }
