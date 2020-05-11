@@ -1,6 +1,7 @@
 package com.example.expirationtracker.ui.items
 
 import android.app.DatePickerDialog
+import android.app.DownloadManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -13,14 +14,19 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import com.android.volley.Request
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
 import com.example.expirationtracker.R
 import com.example.expirationtracker.data.Items
 import com.example.expirationtracker.databinding.FragmentItemDetailBinding
+import com.google.android.gms.common.api.Response
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.storage.UploadTask
 import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.fragment_item_detail.*
 import java.io.File
@@ -43,12 +49,12 @@ class ItemDetailActivity : AppCompatActivity() {
     val TAKE_EXPIRATION_PHOTO = 1
     val TAKE_ITEM_PHOTO = 2
     val TAKE_BARCODE_PHOTO = 3
-    lateinit var currentPhotoPath: String
 
 
     lateinit private var firestoreDB: FirebaseFirestore
-    private var currentImageFilename: String = ""
+    lateinit var currentPhotoPath: String
     private var itemImageFilename: String = ""
+
     private var id = ""
     private var item = Items.ExpirableItem()
     lateinit var binding:FragmentItemDetailBinding
@@ -212,23 +218,13 @@ class ItemDetailActivity : AppCompatActivity() {
         }
     }
 
-    fun uploadImageToCloudStorage(url: String, fileName: String, uri: Uri) {
+    fun uploadImageToCloudStorage(url: String, fileName: String, uri: Uri): UploadTask {
         val storage = Firebase.storage(url)
         val storageRef = storage.reference
 
         // Create a reference to our new image
         val photoRef = storageRef.child(fileName)
-        var uploadTask = photoRef.putFile(uri)
-
-        // Register observers to listen for when the download is done or if it fails
-        uploadTask.addOnFailureListener {
-            // Handle unsuccessful uploads
-            print("no worky")
-        }.addOnSuccessListener {
-            // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
-            // TODO(maybe grab the corresponding text from expiration-text?)
-            print("workeed")
-        }
+        return photoRef.putFile(uri)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -237,20 +233,34 @@ class ItemDetailActivity : AppCompatActivity() {
             Log.e(TAG, "Intent not ok")
             return
         }
+        if (requestCode != TAKE_EXPIRATION_PHOTO && requestCode != TAKE_ITEM_PHOTO && requestCode != TAKE_BARCODE_PHOTO) {
+            // for any other intents, don't do stuff with the image file
+            return
+        }
+        // TODO: save image to gallery?
         var uri = Uri.fromFile(File(currentPhotoPath))
-        currentImageFilename = uri.lastPathSegment.toString()
+        val currentImageFilename = uri.lastPathSegment.toString()
         Log.d(TAG, "took image, Uri: ${uri}")
         if (requestCode == TAKE_EXPIRATION_PHOTO) {
             // TODO: Look up best practice for where to put the cloud storage strings
             //       - in config files? constants? strings.xml?
-            uploadImageToCloudStorage("gs://expiration-ocr-images", currentImageFilename, uri)
-            // TODO: kick off OCR
+            val uploadTask = uploadImageToCloudStorage("gs://expiration-ocr-images", currentImageFilename, uri)
+            // Register observers to listen for when the download is done or if it fails
+            uploadTask.addOnFailureListener {
+                Log.e(TAG, "$it")
+            }.addOnSuccessListener {
+                // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
+                // TODO: kick off OCR
+                print("workeed")
+            }
             return
         }
         if (requestCode == TAKE_ITEM_PHOTO) {
-            uploadImageToCloudStorage("gs://expiration-item-images", currentImageFilename, uri)
-            itemImageFilename = currentImageFilename
-            itemImage.setImageURI(uri)
+            val uploadTask = uploadImageToCloudStorage("gs://expiration-item-images", currentImageFilename, uri)
+            uploadTask.addOnSuccessListener {
+                itemImageFilename = currentImageFilename
+                itemImage.setImageURI(uri)
+            }
         }
         if (requestCode == TAKE_BARCODE_PHOTO) {
             val image: FirebaseVisionImage
@@ -266,6 +276,22 @@ class ItemDetailActivity : AppCompatActivity() {
                             Log.d(TAG, "got barcode: $barcode.rawValue" )
                             barcodeText.text = barcode.rawValue
                             // TODO: look up barcode in barcodelookup api
+
+                            val queue = Volley.newRequestQueue(this)
+                            val url = "https://api.barcodelookup.com/v2/products?barcode=${barcode.rawValue}&key=4c4h7t9vq9cx6znp12q980h55mkpr7"
+
+                            // Request a string response from the provided URL.
+                            val stringRequest = StringRequest(
+                                Request.Method.GET, url,
+                                com.android.volley.Response.Listener<String> { response ->
+                                    // Display the first 500 characters of the response string.
+                                    Log.d(TAG, "from barcodelookup: $response")
+                                    // TODO: parse the string to get product_name and the product page link
+                                },
+                                com.android.volley.Response.ErrorListener { })
+
+                            // Add the request to the RequestQueue.
+                            queue.add(stringRequest)
                         }
                     }
                     .addOnFailureListener {
@@ -278,6 +304,7 @@ class ItemDetailActivity : AppCompatActivity() {
 
     }
 
+    // TODO: allow to choose image from gallery?
     fun getExpirationImage(view: View) {
         dispatchTakePictureIntent(TAKE_EXPIRATION_PHOTO)
     }
