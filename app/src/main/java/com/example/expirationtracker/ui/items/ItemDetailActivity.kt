@@ -246,31 +246,56 @@ class ItemDetailActivity : AppCompatActivity() {
         var uri = Uri.fromFile(File(currentPhotoPath))
         val currentImageFilename = uri.lastPathSegment.toString()
         Log.d(TAG, "took image, Uri: ${uri}")
-        if (requestCode == TAKE_EXPIRATION_PHOTO) {
-            // TODO: Look up best practice for where to put the cloud storage strings
-            //       - in config files? constants? strings.xml?
-            val uploadTask = uploadImageToCloudStorage("gs://expiration-ocr-images", currentImageFilename, uri)
-            // Register observers to listen for when the download is done or if it fails
-            uploadTask.addOnFailureListener {
-                Log.e(TAG, "$it")
-            }.addOnSuccessListener {
-                // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
-                // TODO: kick off OCR
-                print("workeed")
-            }
-            return
-        }
         if (requestCode == TAKE_ITEM_PHOTO) {
             val uploadTask = uploadImageToCloudStorage("gs://expiration-item-images", currentImageFilename, uri)
             uploadTask.addOnSuccessListener {
                 itemImageFilename = currentImageFilename
                 itemImage.setImageURI(uri)
             }
+            return
         }
-        if (requestCode == TAKE_BARCODE_PHOTO) {
-            val image: FirebaseVisionImage
-            try {
-                image = FirebaseVisionImage.fromFilePath(this, uri)
+        // needed by both expiration and barcode
+        val image: FirebaseVisionImage
+        try {
+            image = FirebaseVisionImage.fromFilePath(this, uri)
+
+            if (requestCode == TAKE_EXPIRATION_PHOTO) {
+                // TODO: Look up best practice for where to put the cloud storage strings
+                //       - in config files? constants? strings.xml?
+                val uploadTask = uploadImageToCloudStorage("gs://expiration-ocr-images", currentImageFilename, uri)
+                // Register observers to listen for when the download is done or if it fails
+                uploadTask.addOnFailureListener {
+                    Log.e(TAG, "$it")
+                }.addOnSuccessListener {
+                    // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
+                    // TODO: kick off OCR
+                    print("workeed")
+                }
+
+//                val detector = FirebaseVision.getInstance()
+//                    .onDeviceTextRecognizer
+                val detector = FirebaseVision.getInstance().cloudTextRecognizer
+                val result = detector.processImage(image)
+                    .addOnSuccessListener { result ->
+                        Log.d(TAG, "did OCR, got ${result}")
+                        val resultText = result.text
+                        Log.d(TAG, "did OCR, got lineText ${resultText}")
+                        for (block in result.textBlocks) {
+                            for (line in block.lines) {
+                                val lineText = line.text
+                                    Log.d(TAG, "did OCR, got lineText ${lineText}")
+
+                            }
+                        }
+                        // Task completed successfully
+                        // ...
+                    }
+                    .addOnFailureListener { e ->
+                        // Task failed with an exception
+                        // ...
+                    }
+            }
+            if (requestCode == TAKE_BARCODE_PHOTO) {
                 val detector = FirebaseVision.getInstance()
                     .visionBarcodeDetector
 
@@ -315,9 +340,9 @@ class ItemDetailActivity : AppCompatActivity() {
                     .addOnFailureListener {
                         Log.e(TAG, "barcode ml failed $it" )
                     }
-            } catch (e: IOException) {
-                e.printStackTrace()
             }
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
 
     }
