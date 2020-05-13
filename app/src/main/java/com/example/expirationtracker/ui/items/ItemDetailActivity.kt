@@ -263,6 +263,7 @@ class ItemDetailActivity : AppCompatActivity() {
             return
         }
         if (requestCode == EXPIRATION_DATE_ACTIVITY) {
+            // todo: why doesn't this activity trigger onActivityResult?
             Log.d(TAG, "got extras: ${data?.extras}")
             data?.extras?.let {
                 if (it.containsKey(ARG_EXPIRATION_DATE)) {
@@ -270,7 +271,6 @@ class ItemDetailActivity : AppCompatActivity() {
                     expDate.setText(date)
                 }
             }
-            // todo: how get info out?
             return
         }
         if (requestCode != TAKE_EXPIRATION_PHOTO && requestCode != TAKE_ITEM_PHOTO && requestCode != TAKE_BARCODE_PHOTO) {
@@ -306,12 +306,9 @@ class ItemDetailActivity : AppCompatActivity() {
                     Log.e(TAG, "$it")
                 }.addOnSuccessListener {
                     // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
-                    // TODO: kick off OCR
                     Log.e(TAG, "upload succeeded")
                 }
 
-//                val detector = FirebaseVision.getInstance()
-//                    .onDeviceTextRecognizer
                 Log.d(TAG, "about to start OCR")
                 val detector = FirebaseVision.getInstance().cloudTextRecognizer
                 detector.processImage(image)
@@ -350,13 +347,14 @@ class ItemDetailActivity : AppCompatActivity() {
                         // TODO: if multiple, ask user which to use?
                         for (barcode in barcodes) {
                             Log.d(TAG, "got barcode: ${barcode.rawValue}" )
-//                            item.barcode = barcode.rawValue.toString()
-                            barcodeText.setText(barcode.rawValue.toString())
+                            var code = barcode.rawValue.toString()
+                            barcodeText.setText(code)
 
                             val queue = Volley.newRequestQueue(this)
-                            val url = "https://api.barcodelookup.com/v2/products?barcode=${barcode.rawValue}&key=4c4h7t9vq9cx6znp12q980h55mkpr7"
+                            // TODO: put this api key somewhere better...
+                            val url = "https://api.barcodelookup.com/v2/products?barcode=${code}&key=4c4h7t9vq9cx6znp12q980h55mkpr7"
 
-                            item.productLink = "https://www.barcodelookup.com/${barcode.rawValue}"
+                            item.productLink = "https://www.barcodelookup.com/${code}"
                             productLink.text = item.productLink
                             productLink.visibility = VISIBLE
 
