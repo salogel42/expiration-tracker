@@ -1,7 +1,6 @@
 package com.example.expirationtracker.ui.items
 
 import android.app.DatePickerDialog
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -16,6 +15,7 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.widget.addTextChangedListener
 import com.android.volley.Request
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
@@ -39,6 +39,7 @@ import java.io.File
 import java.io.IOException
 import java.text.ParseException
 import java.text.SimpleDateFormat
+import java.time.Duration
 import java.util.*
 
 
@@ -58,7 +59,7 @@ class ItemDetailActivity : AppCompatActivity() {
     private val EXPIRATION_DATE_ACTIVITY = 4
 
     // TODO: find a way to convert date strings without manually specifying formats?
-    val FORMAT_STRINGS = Arrays.asList("ddMMMy", "MMMddy", "M/d/y", "M-d-y", "M/y", "M-y", "yyyyMMdd");
+    val FORMAT_STRINGS = Arrays.asList("MMM d, y", "ddMMMy", "MMMddy", "M/d/y", "M-d-y", "M/y", "M-y", "yyyyMMdd");
 
 
     lateinit private var firestoreDB: FirebaseFirestore
@@ -98,9 +99,14 @@ class ItemDetailActivity : AppCompatActivity() {
                 toolbar_layout?.title = "Item Details"
             }
         }
+        val originalNotificationDate = item.notificationDate
 
         setupDatePicker(this, item.expirationDate, expDate)
         setupDatePicker(this, item.notificationDate, notifDate)
+        expDate.addTextChangedListener() {
+            if (expDate.text.toString() != getString(R.string.image_processing_msg))
+                setNotificationFromNewExpiration(Date(expDate.text.toString()))
+        }
 
         firestoreDB = FirebaseFirestore.getInstance()
 
@@ -109,6 +115,12 @@ class ItemDetailActivity : AppCompatActivity() {
             item.notes = edtNotes.text.toString()
             item.expirationDate = Timestamp(Date(expDate.text.toString()))
             item.notificationDate = Timestamp(Date(notifDate.text.toString()))
+            if (originalNotificationDate != item.notificationDate) {
+                // TODO: Setup system notification
+                // TODO: get rid of old system notification if there was one?
+
+            }
+
             item.imageFilename = itemImageFilename
             item.barcode = barcodeText.text.toString()
 
@@ -117,11 +129,11 @@ class ItemDetailActivity : AppCompatActivity() {
                     .add(item)
                     .addOnSuccessListener {
                         Log.d(TAG, "DocumentSnapshot successfully written!")
-                        Toast.makeText(this,  "New item saved", Toast.LENGTH_LONG)
+                        Toast.makeText(this,  "New item saved", Toast.LENGTH_LONG).show()
                     }
                     .addOnFailureListener {
                         e -> Log.w(TAG, "Error writing document", e)
-                        Toast.makeText(this,  "New item wasn't saved", Toast.LENGTH_LONG)
+                        Toast.makeText(this,  "New item wasn't saved", Toast.LENGTH_LONG).show()
                     }
             } else {
                 firestoreDB.collection("items")
@@ -129,11 +141,11 @@ class ItemDetailActivity : AppCompatActivity() {
                     .set(item)
                     .addOnSuccessListener {
                         Log.d(TAG, "DocumentSnapshot successfully updated!")
-                        Toast.makeText(this,  "Item updated!", Toast.LENGTH_LONG)
+                        Toast.makeText(this,  "Item updated!", Toast.LENGTH_LONG).show()
                     }
                     .addOnFailureListener {
                             e -> Log.w(TAG, "Error writing document", e)
-                        Toast.makeText(this,  "Updated item wasn't saved", Toast.LENGTH_LONG)
+                        Toast.makeText(this,  "Updated item wasn't saved", Toast.LENGTH_LONG).show()
                     }
             }
             finish()
@@ -244,7 +256,7 @@ class ItemDetailActivity : AppCompatActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        Log.d(TAG, "in onActivityResult, with extras: ${data?.extras}")
+        Log.d(TAG, "in onActivityResult, requestcode: $requestCode, extras: ${data?.extras}")
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) {
             Log.e(TAG, "Intent not ok")
@@ -283,6 +295,9 @@ class ItemDetailActivity : AppCompatActivity() {
             image = FirebaseVisionImage.fromFilePath(this, uri)
 
             if (requestCode == TAKE_EXPIRATION_PHOTO) {
+                // give visual indication that there's work happening in the background to process the image
+                var oldDate = expDate.text.toString()
+                expDate.setText(getString(R.string.image_processing_msg))
                 // TODO: Look up best practice for where to put the cloud storage strings
                 //       - in config files? constants? strings.xml?
                 val uploadTask = uploadImageToCloudStorage("gs://expiration-ocr-images", currentImageFilename, uri)
@@ -299,34 +314,38 @@ class ItemDetailActivity : AppCompatActivity() {
 //                    .onDeviceTextRecognizer
                 Log.d(TAG, "about to start OCR")
                 val detector = FirebaseVision.getInstance().cloudTextRecognizer
-                val result = detector.processImage(image)
+                detector.processImage(image)
                     .addOnSuccessListener { result ->
                         Log.d(TAG, "did OCR, got ${result}")
                         val d = getDateFromResult(result)
                         if (d == null) {
-                            val intent = Intent(this, ExpirationSettingActivity::class.java).apply {
-                                Log.d(ContentValues.TAG, "sending extras to intent (image filename ${currentImageFilename}, result text: ${result.text})")
-                                putExtra(ExpirationSettingActivity.ARG_IMAGE_FILENAME, currentImageFilename)
-                                putExtra(ExpirationSettingActivity.ARG_RESULT_TEXT, result.text)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            startActivityForResult(intent, EXPIRATION_DATE_ACTIVITY)
+                            // TODO: for some reason this intent finishing doesn't trigger onActivityResult, so starting it doesn't seem worthwhile
+//                            val intent = Intent(this, ExpirationSettingActivity::class.java).apply {
+//                                Log.d(ContentValues.TAG, "sending extras to intent (image filename ${currentImageFilename}, result text: ${result.text})")
+//                                putExtra(ExpirationSettingActivity.ARG_IMAGE_FILENAME, currentImageFilename)
+//                                putExtra(ExpirationSettingActivity.ARG_RESULT_TEXT, result.text)
+//                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+//                            }
+//                            startActivityForResult(intent, EXPIRATION_DATE_ACTIVITY)
 
+                            // didn't get a valid date, just put back the old date
+                            expDate.setText(oldDate)
+                            Toast.makeText(this, "Sorry, could not find a valid date in the provided image.", Toast.LENGTH_LONG).show()
                         } else {
                             expDate.setText(Items.getShortDate(d))
+                            setNotificationFromNewExpiration(d)
+                            Toast.makeText(this, "Found a date, and set it for you.", Toast.LENGTH_LONG).show()
                         }
                     }
                     .addOnFailureListener { e ->
                         Log.e(TAG, "$e")
-                        // Task failed with an exception
-                        // ...
                     }
             }
             if (requestCode == TAKE_BARCODE_PHOTO) {
                 val detector = FirebaseVision.getInstance()
                     .visionBarcodeDetector
 
-                val result = detector.detectInImage(image)
+                detector.detectInImage(image)
                     .addOnSuccessListener { barcodes ->
                         // TODO: if multiple, ask user which to use?
                         for (barcode in barcodes) {
@@ -370,7 +389,25 @@ class ItemDetailActivity : AppCompatActivity() {
         } catch (e: IOException) {
             e.printStackTrace()
         }
+    }
 
+    private fun setNotificationFromNewExpiration(d: Date) {
+        Log.d(TAG, "notification from exp setting, new date: ${d}, ${d.time}")
+        val c = Calendar.getInstance()
+        c.time = d
+        var newNotif = Calendar.getInstance()
+        val diff = (c.timeInMillis - newNotif.timeInMillis)
+        val days = Duration.ofMillis(diff).toDays()
+        Log.d(TAG, "notification from exp diff: ${diff}, ${days}")
+        newNotif.add(Calendar.MILLISECOND, (diff/2).toInt());
+        Log.d(TAG, "notification from exp new: ${newNotif}, ${Date(newNotif.timeInMillis)}")
+        notifDate.setText(Items.getShortDate(Date(newNotif.timeInMillis)))
+
+    }
+
+    private fun isDateInFuture(d: Date?) : Boolean {
+        if (d == null) return false
+        return d.after(Calendar.getInstance().time)
     }
 
     private fun getDateFromResult(result: FirebaseVisionText) : Date? {
@@ -378,14 +415,14 @@ class ItemDetailActivity : AppCompatActivity() {
         Log.d(TAG, "did OCR, got result ${resultText}")
         var date = tryParse(resultText)
 
-        if (date != null) return date
+        if (isDateInFuture(date)) return date
         for (block in result.textBlocks) {
             date = tryParse(block.text)
-            if (date != null) return date
+            if (isDateInFuture(date)) return date
             for (line in block.lines) {
                 val lineText = line.text
                 date = tryParse(lineText)
-                if (date != null) return date
+                if (isDateInFuture(date)) return date
                 Log.d(TAG, "did OCR, got lineText ${lineText}")
             }
         }
