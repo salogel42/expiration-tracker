@@ -33,5 +33,7 @@
     <string name="delete">Delete</string>
     <string name="pick_expiration_date">Set Expiration Date</string>
 
+    <string name="title_activity_expiration_setting">ExpirationSettingActivity</string>
+
 
 </resources>

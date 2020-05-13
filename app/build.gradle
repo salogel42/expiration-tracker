@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.expirationtracker"
-        minSdkVersion 21
+        minSdkVersion 26
         targetSdkVersion 29
         multiDexEnabled true
         versionCode 1

@@ -1,6 +1,8 @@
 package com.example.expirationtracker.ui.items
 
 import android.app.DatePickerDialog
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -20,18 +22,22 @@ import com.android.volley.toolbox.Volley
 import com.example.expirationtracker.R
 import com.example.expirationtracker.data.Items
 import com.example.expirationtracker.databinding.FragmentItemDetailBinding
+import com.example.expirationtracker.ui.items.ExpirationSettingActivity.Companion.ARG_EXPIRATION_DATE
 import com.google.firebase.Timestamp
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.text.FirebaseVisionText
 import com.google.firebase.storage.UploadTask
 import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.fragment_item_detail.*
+import kotlinx.android.synthetic.main.fragment_item_detail.expDate
+import kotlinx.android.synthetic.main.fragment_item_detail.itemImage
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -49,6 +55,10 @@ class ItemDetailActivity : AppCompatActivity() {
     val TAKE_EXPIRATION_PHOTO = 1
     val TAKE_ITEM_PHOTO = 2
     val TAKE_BARCODE_PHOTO = 3
+    private val EXPIRATION_DATE_ACTIVITY = 4
+
+    // TODO: find a way to convert date strings without manually specifying formats?
+    val FORMAT_STRINGS = Arrays.asList("ddMMMy", "MMMddy", "M/d/y", "M-d-y", "M/y", "M-y", "yyyyMMdd");
 
 
     lateinit private var firestoreDB: FirebaseFirestore
@@ -68,8 +78,7 @@ class ItemDetailActivity : AppCompatActivity() {
         setContentView(R.layout.fragment_item_detail)
         setSupportActionBar(detail_toolbar)
 
-        var bundle = intent.extras
-        bundle?.let {
+        intent.extras?.let {
             Log.d(TAG, "got bundle: " + it)
             if (it.containsKey(ARG_ITEM_ID)) {
 
@@ -90,8 +99,8 @@ class ItemDetailActivity : AppCompatActivity() {
             }
         }
 
-        setupDatePicker(item.expirationDate, expDate)
-        setupDatePicker(item.notificationDate, notifDate)
+        setupDatePicker(this, item.expirationDate, expDate)
+        setupDatePicker(this, item.notificationDate, notifDate)
 
         firestoreDB = FirebaseFirestore.getInstance()
 
@@ -131,19 +140,21 @@ class ItemDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupDatePicker(ts : Timestamp, text: EditText) {
-        text.setText(Items.getShortDate(ts.toDate()))
-        text.setOnClickListener {
-            var c = Calendar.getInstance()
-            c.time = Date(text.text.toString())
-            DatePickerDialog(this, DatePickerDialog.OnDateSetListener { _, y, m, d ->
-                c.set(y, m, d)
-                text.setText(Items.getShortDate(Date(c.timeInMillis)))
-            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-        }
-    }
+
 
     companion object {
+        fun setupDatePicker(context: Context, ts : Timestamp, text: EditText) {
+            text.setText(Items.getShortDate(ts.toDate()))
+            text.setOnClickListener {
+                var c = Calendar.getInstance()
+                c.time = Date(text.text.toString())
+                DatePickerDialog(context, DatePickerDialog.OnDateSetListener { _, y, m, d ->
+                    c.set(y, m, d)
+                    text.setText(Items.getShortDate(Date(c.timeInMillis)))
+                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+            }
+        }
+
         const val ARG_ITEM_ID = "item_id"
     }
 
@@ -233,9 +244,21 @@ class ItemDetailActivity : AppCompatActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        Log.d(TAG, "in onActivityResult, with extras: ${data?.extras}")
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) {
             Log.e(TAG, "Intent not ok")
+            return
+        }
+        if (requestCode == EXPIRATION_DATE_ACTIVITY) {
+            Log.d(TAG, "got extras: ${data?.extras}")
+            data?.extras?.let {
+                if (it.containsKey(ARG_EXPIRATION_DATE)) {
+                    val date = it.get(ARG_EXPIRATION_DATE).toString()
+                    expDate.setText(date)
+                }
+            }
+            // todo: how get info out?
             return
         }
         if (requestCode != TAKE_EXPIRATION_PHOTO && requestCode != TAKE_ITEM_PHOTO && requestCode != TAKE_BARCODE_PHOTO) {
@@ -269,28 +292,32 @@ class ItemDetailActivity : AppCompatActivity() {
                 }.addOnSuccessListener {
                     // taskSnapshot.metadata contains file metadata such as size, content-type, etc.
                     // TODO: kick off OCR
-                    print("workeed")
+                    Log.e(TAG, "upload succeeded")
                 }
 
 //                val detector = FirebaseVision.getInstance()
 //                    .onDeviceTextRecognizer
+                Log.d(TAG, "about to start OCR")
                 val detector = FirebaseVision.getInstance().cloudTextRecognizer
                 val result = detector.processImage(image)
                     .addOnSuccessListener { result ->
                         Log.d(TAG, "did OCR, got ${result}")
-                        val resultText = result.text
-                        Log.d(TAG, "did OCR, got lineText ${resultText}")
-                        for (block in result.textBlocks) {
-                            for (line in block.lines) {
-                                val lineText = line.text
-                                    Log.d(TAG, "did OCR, got lineText ${lineText}")
-
+                        val d = getDateFromResult(result)
+                        if (d == null) {
+                            val intent = Intent(this, ExpirationSettingActivity::class.java).apply {
+                                Log.d(ContentValues.TAG, "sending extras to intent (image filename ${currentImageFilename}, result text: ${result.text})")
+                                putExtra(ExpirationSettingActivity.ARG_IMAGE_FILENAME, currentImageFilename)
+                                putExtra(ExpirationSettingActivity.ARG_RESULT_TEXT, result.text)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
+                            startActivityForResult(intent, EXPIRATION_DATE_ACTIVITY)
+
+                        } else {
+                            expDate.setText(Items.getShortDate(d))
                         }
-                        // Task completed successfully
-                        // ...
                     }
                     .addOnFailureListener { e ->
+                        Log.e(TAG, "$e")
                         // Task failed with an exception
                         // ...
                     }
@@ -306,7 +333,6 @@ class ItemDetailActivity : AppCompatActivity() {
                             Log.d(TAG, "got barcode: ${barcode.rawValue}" )
 //                            item.barcode = barcode.rawValue.toString()
                             barcodeText.setText(barcode.rawValue.toString())
-                            // TODO: look up barcode in barcodelookup api
 
                             val queue = Volley.newRequestQueue(this)
                             val url = "https://api.barcodelookup.com/v2/products?barcode=${barcode.rawValue}&key=4c4h7t9vq9cx6znp12q980h55mkpr7"
@@ -347,6 +373,43 @@ class ItemDetailActivity : AppCompatActivity() {
 
     }
 
+    private fun getDateFromResult(result: FirebaseVisionText) : Date? {
+        val resultText = result.text
+        Log.d(TAG, "did OCR, got result ${resultText}")
+        var date = tryParse(resultText)
+
+        if (date != null) return date
+        for (block in result.textBlocks) {
+            date = tryParse(block.text)
+            if (date != null) return date
+            for (line in block.lines) {
+                val lineText = line.text
+                date = tryParse(lineText)
+                if (date != null) return date
+                Log.d(TAG, "did OCR, got lineText ${lineText}")
+            }
+        }
+        return tryParse(resultText.replace("(.*)BY ?".toRegex(), ""))
+    }
+
+    private fun tryParse(dateString: String) : Date?
+    {
+        for (formatString in FORMAT_STRINGS)
+        {
+            try
+            {
+                var date = SimpleDateFormat(formatString).parse(dateString);
+                Log.d(TAG, "tryParse succeeded at to parsing ${dateString} with format ${formatString}: $date")
+                return date
+            }
+            catch (e: ParseException) {
+                Log.d(TAG, "tryParse failed to parse ${dateString} with format ${formatString}")
+            }
+        }
+
+        return null;
+    }
+
     // TODO: allow to choose image from gallery?
     fun getExpirationImage(view: View) {
         dispatchTakePictureIntent(TAKE_EXPIRATION_PHOTO)
@@ -355,7 +418,7 @@ class ItemDetailActivity : AppCompatActivity() {
         dispatchTakePictureIntent(TAKE_ITEM_PHOTO)
     }
     fun scanBarcode(view: View) {
-        // TODO: maybe the live barcode thingy instead of taking an image -- extract barcode to store
+        // TODO: maybe the live barcode thingy instead of taking an image
         dispatchTakePictureIntent(TAKE_BARCODE_PHOTO)
     }
 
