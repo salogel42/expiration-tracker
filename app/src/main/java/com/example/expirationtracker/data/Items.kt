@@ -106,7 +106,8 @@ object Items {
         var barcode: String = "",
         var productName: String = "",
         var productLink: String = "",
-        var userId: String? = Firebase.auth.currentUser?.uid
+        var userId: String? = Firebase.auth.currentUser?.uid,
+        var intentId: Int = -1
     ) {
         override fun toString(): String = name
     }

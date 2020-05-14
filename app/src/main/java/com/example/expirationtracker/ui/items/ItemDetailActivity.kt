@@ -1,11 +1,13 @@
 package com.example.expirationtracker.ui.items
 
-import android.app.DatePickerDialog
+import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.view.MenuItem
@@ -14,11 +16,14 @@ import android.view.View.VISIBLE
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import androidx.core.widget.addTextChangedListener
 import com.android.volley.Request
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.example.expirationtracker.ExpirationTracker
 import com.example.expirationtracker.R
 import com.example.expirationtracker.data.Items
 import com.example.expirationtracker.databinding.FragmentItemDetailBinding
@@ -32,8 +37,6 @@ import com.google.firebase.ml.vision.text.FirebaseVisionText
 import com.google.firebase.storage.UploadTask
 import com.google.firebase.storage.ktx.storage
 import kotlinx.android.synthetic.main.fragment_item_detail.*
-import kotlinx.android.synthetic.main.fragment_item_detail.expDate
-import kotlinx.android.synthetic.main.fragment_item_detail.itemImage
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -58,6 +61,7 @@ class ItemDetailActivity : AppCompatActivity() {
     val TAKE_BARCODE_PHOTO = 3
     private val EXPIRATION_DATE_ACTIVITY = 4
 
+    var nextId = 0
     // TODO: find a way to convert date strings without manually specifying formats?
     val FORMAT_STRINGS = Arrays.asList("MMM d, y", "ddMMMy", "MMMddy", "M/d/y", "M-d-y", "M/y", "M-y", "yyyyMMdd");
 
@@ -84,7 +88,14 @@ class ItemDetailActivity : AppCompatActivity() {
             if (it.containsKey(ARG_ITEM_ID)) {
 
                 // Grab the id and get the corresponding object to fill the fields
+                Log.d(TAG, "got intent with id ${it.getString(ARG_ITEM_ID)}")
                 id = it.getString(ARG_ITEM_ID).toString()
+                Log.d(TAG, "got intent with id $id")
+                if (Items.ITEM_MAP[id] == null) {
+                    Toast.makeText(this, "Couldn't find item with id ${id}",Toast.LENGTH_LONG).show()
+                    finish()
+                    return
+                }
                 item = Items.ITEM_MAP[id]!!
 
                 edtName.setText(item.name)
@@ -115,19 +126,21 @@ class ItemDetailActivity : AppCompatActivity() {
             item.notes = edtNotes.text.toString()
             item.expirationDate = Timestamp(Date(expDate.text.toString()))
             item.notificationDate = Timestamp(Date(notifDate.text.toString()))
-            if (originalNotificationDate != item.notificationDate) {
-                // TODO: Setup system notification
-                // TODO: get rid of old system notification if there was one?
-
-            }
-
             item.imageFilename = itemImageFilename
             item.barcode = barcodeText.text.toString()
 
             if (id == "") {
+                // it may not need this yet, but better to have all saved items have one.
+                // it'd be better if I could generate one from the id, but i'm not sure how to take
+                // a string and turn it into an int in a way that's guaranteed to be unique
+                item.intentId = nextId++
                 firestoreDB.collection("items")
                     .add(item)
                     .addOnSuccessListener {
+                        item.id = it.id
+                        if (originalNotificationDate != item.notificationDate) {
+                            setupNotification()
+                        }
                         Log.d(TAG, "DocumentSnapshot successfully written!")
                         Toast.makeText(this,  "New item saved", Toast.LENGTH_LONG).show()
                     }
@@ -140,6 +153,9 @@ class ItemDetailActivity : AppCompatActivity() {
                     .document(id)
                     .set(item)
                     .addOnSuccessListener {
+                        if (originalNotificationDate != item.notificationDate) {
+                            setupNotification()
+                        }
                         Log.d(TAG, "DocumentSnapshot successfully updated!")
                         Toast.makeText(this,  "Item updated!", Toast.LENGTH_LONG).show()
                     }
@@ -153,6 +169,100 @@ class ItemDetailActivity : AppCompatActivity() {
     }
 
 
+    fun setupNotification() {
+        val intent = Intent(this, ItemDetailActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        Log.d(TAG, "setting up notification with id: ${item.id}")
+        intent.putExtra(ARG_ITEM_ID, item.id)
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT // without this flag, it caches old ids and tries to bring them up
+        )
+
+        var builder = NotificationCompat.Builder(this, ExpirationTracker.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_expirable)
+            .setContentTitle("Expiration Notification")
+            .setContentText("Your item ${shortenName(item.name)} is expiring on ${Items.getShortDate(item.expirationDate.toDate())}")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+
+        val notificationIntent = Intent(this, ExpirationNotificationReceiver::class.java)
+        notificationIntent.putExtra(ExpirationNotificationReceiver.NOTIFICATION_ID, item.intentId)
+        notificationIntent.putExtra(ExpirationNotificationReceiver.NOTIFICATION, builder.build())
+        val pendingNotificationIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            notificationIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val alarmManager: AlarmManager = this.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+//        alarmManager[AlarmManager.ELAPSED_REALTIME_WAKEUP, 60 * 1000] = pendingNotificationIntent
+
+
+        var c = Calendar.getInstance()
+        c.time = item.notificationDate.toDate()
+//        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, c.timeInMillis, pendingNotificationIntent)
+        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 6 * 1000, pendingNotificationIntent)
+//        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 10 * 1000, pendingIntent)
+    }
+
+    class RebootReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // Get all of the items and set notifications for the ones with notification date in the future
+            // for now just set up a single immediate notification
+
+            var builder = NotificationCompat.Builder(context, ExpirationTracker.CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_expirable)
+                .setContentTitle("Expiration Notification")
+                .setContentText("Here's a silly fake notification with no intent")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+
+            val notificationIntent = Intent(context, ExpirationNotificationReceiver::class.java)
+            notificationIntent.putExtra(ExpirationNotificationReceiver.NOTIFICATION_ID, "item.intentId")
+            notificationIntent.putExtra(ExpirationNotificationReceiver.NOTIFICATION, builder.build())
+            val pendingNotificationIntent = PendingIntent.getBroadcast(
+                context,
+                0,
+                notificationIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val alarmManager: AlarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 6 * 1000, pendingNotificationIntent)        }
+    }
+    // cribbed from https://www.tutorialspoint.com/how-to-set-an-android-notification-to-a-specific-date-in-the-future
+    class ExpirationNotificationReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.d(TAG, "received in ExpirationNotificationPublisher Intent extras ${intent.extras}")
+            val notificationManager: NotificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notification: Notification =
+                intent.getParcelableExtra(NOTIFICATION)
+            val id = intent.getIntExtra(NOTIFICATION_ID, 0)
+            assert(notificationManager != null)
+            // this will create a new one or update an existing one
+            with(NotificationManagerCompat.from(context)) {
+                notify(id, notification)
+            }
+        }
+
+        companion object {
+            var TAG = "ExpirationNotificationPublisher"
+            var NOTIFICATION_ID = "notification-id"
+            var NOTIFICATION = "notification"
+        }
+    }
+
+    fun shortenName(name: String) : String {
+        if (name.length > 18) {
+            return item.name.substring(0, 15) + "..."
+        }
+        return name
+    }
 
     companion object {
         fun setupDatePicker(context: Context, ts : Timestamp, text: EditText) {
@@ -165,6 +275,10 @@ class ItemDetailActivity : AppCompatActivity() {
                     text.setText(Items.getShortDate(Date(c.timeInMillis)))
                 }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
             }
+        }
+
+        fun setupNotification() {
+            TODO("Not yet implemented")
         }
 
         const val ARG_ITEM_ID = "item_id"

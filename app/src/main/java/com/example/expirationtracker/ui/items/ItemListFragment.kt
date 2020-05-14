@@ -1,5 +1,6 @@
 package com.example.expirationtracker.ui.items
 
+import android.app.NotificationManager
 import android.content.ContentValues.TAG
 import android.content.Intent
 import android.os.Bundle
@@ -9,10 +10,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.NotificationManagerCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.expirationtracker.ExpirationTracker
 import com.example.expirationtracker.R
 import com.example.expirationtracker.data.Items
 import com.example.expirationtracker.data.Items.getShortDate
@@ -125,7 +128,7 @@ class ItemListFragment : Fragment() {
             holder.deleteView.setOnClickListener(View.OnClickListener {
                 deleteItem(
                     it,
-                    item.id,
+                    item,
                     position
                 )
             })
@@ -147,12 +150,16 @@ class ItemListFragment : Fragment() {
             }
             v.context.startActivity(intent)
         }
-        private fun deleteItem(v: View, id: String, position: Int) {
+        private fun deleteItem(v: View, item: Items.ExpirableItem, position: Int) {
             firestoreDB.collection("items")
-                .document(id)
+                .document(item.id)
                 .delete()
                 .addOnCompleteListener {
 //                    Items.removeItem(position)
+                    with(NotificationManagerCompat.from(v.context)) {
+                        // notificationId is a unique int for each notification that you must define
+                        cancel(item.intentId)
+                    }
                     notifyItemRemoved(position)
                     notifyItemRangeChanged(position, Items.size())
                     Toast.makeText(v.context, "Item has been deleted!", Toast.LENGTH_SHORT).show()
