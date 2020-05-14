@@ -54,8 +54,6 @@ import java.util.*
  */
 class ItemDetailActivity : AppCompatActivity() {
 
-    private val TAG = "ItemDetailActivity"
-
     val TAKE_EXPIRATION_PHOTO = 1
     val TAKE_ITEM_PHOTO = 2
     val TAKE_BARCODE_PHOTO = 3
@@ -82,6 +80,8 @@ class ItemDetailActivity : AppCompatActivity() {
 //        TODO(maybe): set up actual 2-way databinding
         setContentView(R.layout.fragment_item_detail)
         setSupportActionBar(detail_toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setDisplayShowHomeEnabled(true)
 
         intent.extras?.let {
             Log.d(TAG, "got bundle: " + it)
@@ -170,17 +170,17 @@ class ItemDetailActivity : AppCompatActivity() {
 
 
     fun setupNotification() {
-        val intent = Intent(this, ItemDetailActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
+        val intent = Intent(this, ItemDetailActivity::class.java)
+
         Log.d(TAG, "setting up notification with id: ${item.id}")
         intent.putExtra(ARG_ITEM_ID, item.id)
-        val pendingIntent: PendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT // without this flag, it caches old ids and tries to bring them up
-        )
+        // Create the TaskStackBuilder -- allows user to go back to home from notification intent
+        val pendingIntent: PendingIntent? = TaskStackBuilder.create(this).run {
+            // Add the intent, which inflates the back stack
+            addNextIntentWithParentStack(intent)
+            // Get the PendingIntent containing the entire back stack
+            getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT)
+        }
 
         var builder = NotificationCompat.Builder(this, ExpirationTracker.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_expirable)
@@ -212,6 +212,11 @@ class ItemDetailActivity : AppCompatActivity() {
 
     class RebootReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            Log.d(TAG, "got reboot broadcast!")
+            if ("android.intent.action.BOOT_COMPLETED".equals(intent.getAction())) {
+                Log.d(TAG, "definitely got reboot broadcast!")
+
+            }
             // Get all of the items and set notifications for the ones with notification date in the future
             // for now just set up a single immediate notification
 
@@ -281,6 +286,7 @@ class ItemDetailActivity : AppCompatActivity() {
             TODO("Not yet implemented")
         }
 
+        val TAG = "ItemDetailActivity"
         const val ARG_ITEM_ID = "item_id"
     }
 

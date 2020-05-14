@@ -2,24 +2,26 @@ package com.example.expirationtracker.ui.auth
 
 import android.content.Intent
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
+import com.example.expirationtracker.R
+import com.example.expirationtracker.databinding.FragmentGoogleBinding
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.material.navigation.NavigationView
+import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import com.example.expirationtracker.databinding.FragmentGoogleBinding
-import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import com.example.expirationtracker.R
+
 
 /**
  * Demonstrate Firebase Authentication using a Google ID Token.
@@ -106,6 +108,15 @@ class GoogleSignInActivity : Fragment(), View.OnClickListener {
                         // Sign in success, update UI with the signed-in user's information
                         Log.d(TAG, "signInWithCredential:success")
                         val user = auth.currentUser
+
+                        // switch to list item drawer
+                        val navigationView =
+                            activity!!.findViewById<View>(R.id.nav_view) as NavigationView
+                        navigationView.setCheckedItem(R.id.nav_home)
+                        navigationView.menu.performIdentifierAction(R.id.nav_home, 0)
+
+                        // in the meantime, also update this ui so that if they come back here they can sign out.
+                        // TODO: wait a bit to do this so it doesn't flash a change right before switching?
                         updateUI(user)
                     } else {
                         // If sign in fails, display a message to the user.
