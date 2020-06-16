@@ -54,6 +54,13 @@
             android:orientation="vertical">
 
 
+            <TextView
+                android:id="@+id/nameLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:hint="Item Name" />
+
             <EditText
                 android:id="@+id/edtName"
                 android:layout_width="match_parent"
@@ -62,6 +69,13 @@
                 android:hint="item name"
                 android:inputType="textShortMessage" />
 
+            <TextView
+                android:id="@+id/notesLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:hint="Description/notes" />
+
             <EditText
                 android:id="@+id/edtNotes"
                 android:layout_width="match_parent"
@@ -69,6 +83,13 @@
                 android:layout_marginTop="20dp"
                 android:hint="Notes (e.g. where do you keep it? whose is it?)"
                 android:inputType="textMultiLine" />
+
+            <TextView
+                android:id="@+id/expLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:hint="Expiration Date" />
 
             <EditText
                 android:id="@+id/expDate"
@@ -86,6 +107,13 @@
                 android:onClick="getExpirationImage"
                 android:text="Take Image to get Expiration" />
 
+
+            <TextView
+                android:id="@+id/notifLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="30dp"
+                android:hint="Notification Date" />
 
             <EditText
                 android:id="@+id/notifDate"
@@ -110,27 +138,29 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="30dp"
+                android:textSize="20sp"
+                android:onClick="scanBarcode"
                 android:hint="Barcode not set" />
 
-
             <Button
-                android:id="@+id/barcodeImage"
+                android:id="@+id/barcodeButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:onClick="scanBarcode"
-                android:text="Scan Barcode" />
+                android:text="Take Picture for Barcode" />
+
+            <ImageView
+                android:id="@+id/itemImage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
 
             <Button
                 android:id="@+id/notificationImage"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:onClick="getItemImage"
-                android:text="Take Image of Whole Item" />
+                android:text="Take Image of Item" />
 
-            <ImageView
-                android:id="@+id/itemImage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
@@ -143,6 +173,6 @@
         android:layout_margin="@dimen/fab_margin"
         app:layout_anchor="@+id/item_detail_container"
         app:layout_anchorGravity="top|end"
-        app:srcCompat="@android:drawable/stat_notify_chat" />
+        app:srcCompat="@android:drawable/ic_menu_save" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

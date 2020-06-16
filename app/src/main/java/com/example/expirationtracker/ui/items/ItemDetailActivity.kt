@@ -12,6 +12,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
 import android.widget.EditText
 import android.widget.Toast
@@ -67,6 +68,7 @@ class ItemDetailActivity : AppCompatActivity() {
     lateinit private var firestoreDB: FirebaseFirestore
     lateinit var currentPhotoPath: String
     private var itemImageFilename: String = ""
+    var expDateUpdated = false
 
     private var id = ""
     private var item = Items.ExpirableItem()
@@ -84,7 +86,7 @@ class ItemDetailActivity : AppCompatActivity() {
         supportActionBar?.setDisplayShowHomeEnabled(true)
 
         intent.extras?.let {
-            Log.d(TAG, "got bundle: " + it)
+            Log.d(TAG, "got bundle: $it")
             if (it.containsKey(ARG_ITEM_ID)) {
 
                 // Grab the id and get the corresponding object to fill the fields
@@ -112,9 +114,21 @@ class ItemDetailActivity : AppCompatActivity() {
         }
         val originalNotificationDate = item.notificationDate
 
+        if (intent.extras == null) {
+            var builder = AlertDialog.Builder(this)
+                .setTitle("Take Barcode Image?")
+                .setMessage("Would you like to take an image of a barcode to auto-fill many of the item details?")
+                .setPositiveButton(android.R.string.yes) { _ , _ ->
+                    scanBarcode(binding.root)
+                }
+                .setNegativeButton(android.R.string.no) { _,_ -> }
+            builder.show()
+        }
+
         setupDatePicker(this, item.expirationDate, expDate)
         setupDatePicker(this, item.notificationDate, notifDate)
         expDate.addTextChangedListener() {
+            expDateUpdated = true
             if (expDate.text.toString() != getString(R.string.image_processing_msg))
                 setNotificationFromNewExpiration(Date(expDate.text.toString()))
         }
@@ -273,13 +287,17 @@ class ItemDetailActivity : AppCompatActivity() {
         fun setupDatePicker(context: Context, ts : Timestamp, text: EditText) {
             text.setText(Items.getShortDate(ts.toDate()))
             text.setOnClickListener {
-                var c = Calendar.getInstance()
-                c.time = Date(text.text.toString())
-                DatePickerDialog(context, DatePickerDialog.OnDateSetListener { _, y, m, d ->
-                    c.set(y, m, d)
-                    text.setText(Items.getShortDate(Date(c.timeInMillis)))
-                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                datePicker(text, context)
             }
+        }
+
+        fun datePicker(text: EditText, context: Context) {
+            var c = Calendar.getInstance()
+            c.time = Date(text.text.toString())
+            DatePickerDialog(context, DatePickerDialog.OnDateSetListener { _, y, m, d ->
+                c.set(y, m, d)
+                text.setText(Items.getShortDate(Date(c.timeInMillis)))
+            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
         }
 
         fun setupNotification() {
@@ -348,7 +366,6 @@ class ItemDetailActivity : AppCompatActivity() {
             }
         }
     }
-
 
 
     @Throws(IOException::class)
@@ -447,12 +464,30 @@ class ItemDetailActivity : AppCompatActivity() {
 
                             // didn't get a valid date, just put back the old date
                             expDate.setText(oldDate)
-                            Toast.makeText(this, "Sorry, could not find a valid date in the provided image.", Toast.LENGTH_LONG).show()
+                            AlertDialog.Builder(this)
+                                .setTitle("Couldn't read a date")
+                                .setMessage("Sorry, we could not find a valid date in the provided image. Set expiration manually?")
+                                .setPositiveButton(android.R.string.yes) { dialog , which ->
+                                    datePicker(expDate, this)
+                                }
+                                .setNegativeButton(android.R.string.no) { _,_ -> }
+                                .show()
                         } else {
                             expDate.setText(Items.getShortDate(d))
                             setNotificationFromNewExpiration(d)
                             Toast.makeText(this, "Found a date, and set it for you.", Toast.LENGTH_LONG).show()
                         }
+                        if (itemImage.visibility == INVISIBLE) {
+                            AlertDialog.Builder(this)
+                                .setTitle("Item Picture?")
+                                .setMessage("Would you like to take an image of the whole item for your records?")
+                                .setPositiveButton(android.R.string.yes) { dialog , which ->
+                                    getItemImage(binding.root)
+                                }
+                                .setNegativeButton(android.R.string.no) { _,_ -> }
+                                .show()
+                        }
+
                     }
                     .addOnFailureListener { e ->
                         Log.e(TAG, "$e")
@@ -491,8 +526,29 @@ class ItemDetailActivity : AppCompatActivity() {
                                     if (edtNotes.text.toString() == "")
                                         edtNotes.setText(product.get("description").toString())
 
-                                    if (edtName.text.toString() == "")
+                                    if (edtName.text.toString() == "") {
                                         edtName.setText(item.productName)
+                                    } else {
+                                        var builder = AlertDialog.Builder(this)
+                                            .setTitle("Replace Name?")
+                                            .setMessage("Would you like to replace your manually entered name ${edtName.text} with the product name ${item.productName}?")
+                                            .setPositiveButton(android.R.string.yes) { dialog , which ->
+                                                edtName.setText(item.productName)
+                                            }
+                                            .setNegativeButton(android.R.string.no) { _,_ -> }
+                                        builder.create().show()
+                                    }
+                                    if (!expDateUpdated) {
+                                        AlertDialog.Builder(this)
+                                            .setTitle("Expiration Date Picture?")
+                                            .setMessage("Would you like to take an image of the expiration date?")
+                                            .setPositiveButton(android.R.string.yes) { dialog , which ->
+                                                getExpirationImage(binding.root)
+                                            }
+                                            .setNegativeButton(android.R.string.no) { _,_ -> }
+                                            .show()
+                                    }
+
                                 },
                                 com.android.volley.Response.ErrorListener { })
 
